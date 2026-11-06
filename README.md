@@ -5,6 +5,7 @@
 <p align="center">
   <img alt="Ubuntu 26.04 LTS" src="https://img.shields.io/badge/Ubuntu-26.04_LTS-6200E9?logo=ubuntu&logoColor=white">
   <img alt="Claude Code 2.1" src="https://img.shields.io/badge/Claude_Code-2.1-6200E9?logo=anthropic&logoColor=white">
+  <img alt="Codex" src="https://img.shields.io/badge/Codex-testado-6200E9?logo=openai&logoColor=white">
   <img alt="Model Context Protocol" src="https://img.shields.io/badge/MCP-stdio-6200E9">
   <img alt="Node.js 20+" src="https://img.shields.io/badge/Node.js-20%2B-6200E9?logo=nodedotjs&logoColor=white">
   <img alt="Transcrição local" src="https://img.shields.io/badge/Whisper-local-6200E9">
@@ -75,12 +76,13 @@ O **serviço em segundo plano** mantém um Chrome invisível logado no Aspa, exe
 | Sistema | Ubuntu 26.04.1 LTS (GNOME Shell 50.1, X11, kernel 7.0) |
 | Claude Code | 2.1.318 |
 | Modelo | Claude Opus 5.5 (`claude-opus-5-5`) |
+| Também testado em | Codex (outro atendente, Ubuntu, modo somente leitura) |
 | Node.js | 22.23.2 |
 | Google Chrome | 157.0.8103.38 |
 | Python (transcrição) | 3.14.4 com faster-whisper 1.2.1, modelo `small`, CPU |
 | Data dos testes | novembro de 2026 |
 
-Testado de ponta a ponta: login, leitura, anexos (imagem, PDF, áudio), transcrição, envio de texto, anexo e template, concluir, reabrir, adiar, renomear contato e notificações no Ubuntu. Também testados: assumir, transferir, criar contato, janela de revisão, filtros, busca, estatísticas, responder citando e adiar até data. Anexos de vídeo: só download.
+Testado de ponta a ponta: login, leitura, anexos (imagem, PDF, áudio), transcrição, envio de texto, anexo e template, concluir, reabrir, adiar, renomear contato e notificações no Ubuntu. Também testados: assumir, transferir, criar contato, janela de revisão, filtros, busca, estatísticas, responder citando e adiar até data. Anexos de vídeo: só download. No Codex, um segundo atendente testou a instalação, a configuração guiada e a leitura em modo somente leitura (detalhes na seção 11).
 
 ---
 
@@ -878,7 +880,7 @@ Use somente as ferramentas do MCP aspa aspa_statistics e aspa_get_guidelines. Re
 | --- | --- |
 | Claude Code 2.1 + Claude Opus 5.5 | Testado de ponta a ponta |
 | Antigravity (agy) 1.5.2 | Encontrou e leu as ferramentas; no modo não interativo para antes de chamar (precisa de aprovação). Testar no modo interativo |
-| Codex 0.162 | Registrado; o teste não rodou porque os modelos configurados não estão liberados para a conta ChatGPT |
+| Codex (outro atendente, Ubuntu, modo somente leitura) | Testado: instalação, atualização, configuração guiada (checklist e ajustes), estatísticas, diretrizes, listagem, conversas sem resposta, leitura sem marcar como lida, resumo e rascunho no tom da equipe. O Codex não tentou assumir nem responder conversa de outro atendente. Falta: aviso no Slack, conferência de segurança das ferramentas e janela de revisão numa conversa própria |
 | opencode 2.2.5 (DeepSeek, GLM, Kimi via Morph) | Registrado; testar no modo interativo |
 | Grok Bot 0.78, Z Code 3.16 | Configurar pelo app e testar |
 
