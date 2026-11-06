@@ -4,12 +4,18 @@
 
 | Symptom | What to do |
 | --- | --- |
-| "aspa-mcp daemon is not running" | `systemctl --user restart aspa-mcp` |
-| "Aspa session expired" or the "Sessão expirada" (Session expired) notification | Ask Claude to "sign in to Aspa" or run `npm run smoke -- --login` |
+| `DAEMON_DOWN`: "O serviço do aspa-mcp não está rodando" (service not running) | `systemctl --user restart aspa-mcp` |
+| `SESSION_EXPIRED` or the "Sessão expirada" (Session expired) notification | Ask the assistant to "sign in to Aspa" or run `npm run smoke -- --login` |
 | `aspa` does not show up in `/mcp` | Redo [step 4](installation.md#step-4-connect-to-claude-code) and restart Claude Code |
-| "More than one conversation matches" | Use the full name or the number in the list |
-| "Send button not available" | The 24-hour window has closed: send a template |
-| "Conversation not found" | Ask Claude to list the conversations first |
+| `AMBIGUOUS`: more than one conversation matches | Use the full name; if two contacts share the name, also pass the number from the list |
+| `WRONG_CONVERSATION` | The open conversation was not the requested one and nothing was done. Read the conversation again and retry |
+| `DUPLICATE` | The same message was sent less than 2 minutes ago. Check Aspa before repeating |
+| `NOT_VERIFIED` | The action may have happened, but the panel did not confirm it. Check Aspa before repeating |
+| `FORBIDDEN` mentioning the 24-hour window | The 24-hour window has closed: send a template |
+| `UI_CHANGED` | The Aspa panel changed. Run `npm run doctor -- "<your contact>"` and see what failed |
+| `NOT_FOUND`: conversation not found | Ask the assistant to list the conversations first |
+| Alerts stopped, or the "Avisos do Aspa parados" alert | `npm run saude` and `npm run doctor`; then `systemctl --user restart aspa-mcp` |
+| Reading is slow | The first action after a restart waits for the panel to load (up to about 1 minute). After that it is fast |
 | Drafts ignore the team's tone | Ask Claude to "show the Aspa guidelines" and check `erros_de_configuracao` |
 | Notifications do not arrive | Check `dias`, `horario` and `canais` in `pessoal.yaml`; run `npm run test-notify` |
 | I want to see what the service is doing | `journalctl --user -u aspa-mcp -f` |
@@ -33,7 +39,7 @@ When a new version is available, the setup checklist tells you ("Versão nova di
 - **Ask the assistant** (Claude Code or Codex): *"Update aspa."*
 - **In the terminal**: `cd ~/dev/aspa-mcp && npm run atualizar`
 
-Both pull the new version, install dependencies if they changed and restart the service. Then **reload the MCP in your client** to see the new tools:
+Both install the latest published version (versions are tagged `v0.6.0`, `v0.7.0`...), install dependencies if they changed (and go back to the previous version if that fails) and restart the service, unless an Aspa window or action is in progress. What changed in each version is in the [CHANGELOG](../../CHANGELOG.md). If the new version changed the systemd service, also run `npm run install-service`. Then **reload the MCP in your client** to see the new tools:
 
 | Client | How to reload |
 | --- | --- |

@@ -56,3 +56,44 @@ test("notification filters by contact and agent", () => {
   assert.equal(passesFilters({ ...base, atendentes: ["sem_atendente"] }, { contact: "X", assigned: true, agent: null }), false);
   assert.equal(passesFilters({ ...base, atendentes: ["ana"] }, { contact: "X", assigned: true, agent: "Ana Souza" }), true);
 });
+
+test("booleans must be real booleans", () => {
+  write(join(root, "equipe.yaml"), "auditoria:\n  incluir_texto: não\n");
+  write(join(root, "pessoal.yaml"), "");
+  const { config, errors } = loadConfig();
+  assert.ok(errors.some((e) => e.startsWith("auditoria.incluir_texto")));
+  assert.equal(config.auditoria.incluir_texto, true);
+});
+
+test("unknown keys are reported", () => {
+  write(join(root, "equipe.yaml"), "notificacoes:\n  abaz: [meus]\nempresa:\n  site: x\n");
+  const { errors } = loadConfig();
+  assert.ok(errors.some((e) => e.startsWith("notificacoes.abaz")));
+  assert.ok(!errors.some((e) => e.startsWith("empresa.site")));
+});
+
+test("empty contact filters are ignored instead of matching everyone", () => {
+  write(join(root, "equipe.yaml"), "notificacoes:\n  contatos_ignorar: ['']\n");
+  const { config, errors } = loadConfig();
+  assert.deepEqual(config.notificacoes.contatos_ignorar, []);
+  assert.ok(errors.some((e) => e.includes("contatos_ignorar")));
+  assert.equal(passesFilters(config.notificacoes, { contact: "Qualquer" }), true);
+});
+
+test("agent filter matches whole words", () => {
+  const base = { contatos_ignorar: [], contatos_incluir: [], atendentes: ["ana"] };
+  assert.equal(passesFilters(base, { contact: "X", assigned: true, agent: "Ana Souza" }), true);
+  assert.equal(passesFilters(base, { contact: "X", assigned: true, agent: "Mariana Lima" }), false);
+});
+
+test("templates and examples load without errors", async () => {
+  const { readdirSync, copyFileSync } = await import("node:fs");
+  for (const folder of ["modelos", "exemplos"]) {
+    const dir = join(import.meta.dirname, "..", folder);
+    if (!readdirSync(dir).includes("equipe.yaml")) continue;
+    copyFileSync(join(dir, "equipe.yaml"), join(root, "equipe.yaml"));
+    copyFileSync(join(dir, "pessoal.yaml"), join(root, "pessoal.yaml"));
+    const { errors } = loadConfig();
+    assert.deepEqual(errors, [], folder);
+  }
+});

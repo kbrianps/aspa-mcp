@@ -14,8 +14,11 @@ export function readEnvValues() {
   return values;
 }
 
-export function loadEnvFile() {
+export const SECRET_KEY = /TOKEN|WEBHOOK|SECRET|PASSWORD|NTFY_URL/;
+
+export function loadEnvFile({ includeSecrets = true } = {}) {
   for (const [key, value] of Object.entries(readEnvValues())) {
+    if (!includeSecrets && SECRET_KEY.test(key)) continue;
     if (!(key in process.env)) process.env[key] = value;
   }
 }

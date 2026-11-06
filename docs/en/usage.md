@@ -34,7 +34,7 @@ Open Claude Code in any folder and **ask in plain language**, the way you would 
 - **Nothing is sent without your approval.** Sending, transferring, snoozing, closing, reopening and renaming always open a permission prompt.
 - **Never choose "always allow"** for these tools. Approve them one by one.
 - **WhatsApp 24-hour window**: after 24 hours without a message from the customer, you can only send **templates**. Claude warns you and suggests one.
-- **Opening a conversation may mark it as read** in the Aspa panel. To avoid that, ask to "read without marking as read" (`keepUnread`).
+- **Reading does not mark as read:** an unread conversation stays unread after the assistant reads it (it takes a few extra seconds). To mark it as read, ask to "read it and mark it as read".
 - **A conversation with no agent assigned** shows "Assumir" (Take over) instead of the message box: ask Claude to "take over the conversation" before replying or transferring.
 
 ---

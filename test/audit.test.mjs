@@ -29,3 +29,17 @@ test("never throws, even with a broken config", () => {
   assert.doesNotThrow(() => recordAudit({ method: "conclude", args: { contact: "X" }, status: "ok", result: {}, startedAt: Date.now() }));
   assert.doesNotThrow(() => recordAudit(undefined));
 });
+
+test("rotates the log by month and still reads old months", async () => {
+  const { utimesSync } = await import("node:fs");
+  write(join(root, "equipe.yaml"), `auditoria:\n  arquivo: ${file}\n  incluir_texto: false\n`);
+  const before = readAudit({ limit: 100 }).total;
+  const lastMonth = new Date();
+  lastMonth.setMonth(lastMonth.getMonth() - 1);
+  utimesSync(file, lastMonth, lastMonth);
+  recordAudit({ method: "conclude", args: { contact: "Y" }, status: "ok", result: { concluded: true, phone: "5511" }, startedAt: Date.now() });
+  const all = readAudit({ limit: 100 });
+  assert.equal(all.arquivos, 2);
+  assert.equal(all.total, before + 1);
+  assert.equal(all.registros[0].resultado.phone, undefined);
+});

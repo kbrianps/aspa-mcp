@@ -2,7 +2,7 @@
 
 [← Back to README](../../README.en.md) · [Installation](installation.md) · [Usage](usage.md) · [Configuration](configuration.md) · [Notifications](notifications.md) · [Troubleshooting](troubleshooting.md) · [Reference](reference.md) · 🇧🇷 [Português](../transcricao.md)
 
-Transcribes customer audio messages **on your computer** (the audio never leaves the machine). It takes up about 1 GB in `/var/tmp/aspa-mcp/whisper`.
+Transcribes customer audio messages **on your computer** (the audio never leaves the machine). It takes up about 1 GB in `~/.local/share/aspa-mcp/whisper` (older installs stay in `/var/tmp/aspa-mcp/whisper`; for another location, set `ASPA_WHISPER_DIR`).
 
 ```sh
 cd ~/dev/aspa-mcp

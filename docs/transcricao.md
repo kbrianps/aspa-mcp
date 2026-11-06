@@ -4,7 +4,7 @@
 
 🇺🇸 [English](en/transcription.md)
 
-Transcreve os áudios dos clientes **no seu computador** (o áudio não sai da máquina). Ocupa cerca de 1 GB em `/var/tmp/aspa-mcp/whisper`.
+Transcreve os áudios dos clientes **no seu computador** (o áudio não sai da máquina). Ocupa cerca de 1 GB em `~/.local/share/aspa-mcp/whisper` (instalações antigas continuam em `/var/tmp/aspa-mcp/whisper`; para outro lugar, use `ASPA_WHISPER_DIR`).
 
 ```sh
 cd ~/dev/aspa-mcp

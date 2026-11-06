@@ -24,7 +24,7 @@ Toda ação que muda algo no Aspa feita pelo aspa-mcp fica registrada, **inclusi
 
 Cada registro tem também: data e hora, duração, usuário e computador, contato, status (`ok` ou `erro`), se o resultado foi conferido no painel e a mensagem de erro, quando houver. No terminal, ações que rodaram mas não se confirmaram no painel aparecem como **NÃO CONFERIDO**.
 
-- **Onde fica**: `~/.local/share/aspa-mcp/auditoria.jsonl` (uma linha JSON por ação, só você consegue ler; o arquivo só cresce, nada é apagado).
+- **Onde fica**: `~/.local/share/aspa-mcp/auditoria.jsonl` (uma linha JSON por ação, só você consegue ler; nada é apagado). A cada mês o arquivo anterior vira `auditoria-AAAA-MM.jsonl`, e a consulta lê todos. Mudanças de configuração, documentos, ID do Slack, login e atualização também entram no registro.
 - **Ver no terminal**:
 
   ```sh
@@ -61,6 +61,7 @@ Cada registro tem também: data e hora, duração, usuário e computador, contat
 - `~/.local/share/aspa-mcp/profile` guarda uma **sessão ativa do Aspa**: trate como senha.
 - `~/.config/aspa-mcp/env` guarda o token do Slack: não compartilhe nem faça commit.
 - `~/.config/aspa-mcp/equipe.yaml` e `conhecimento/` têm informações internas: compartilhe só por canais privados.
-- Anexos baixados ficam em `~/.cache/aspa-mcp`: apague quando terminar (`rm -rf ~/.cache/aspa-mcp/attachments`).
+- Anexos baixados ficam em `~/.cache/aspa-mcp` e são apagados sozinhos depois de 7 dias (`ASPA_ATTACHMENT_RETENTION_DAYS`). Para apagar na hora: `rm -rf ~/.cache/aspa-mcp/attachments`.
+- O token do Slack não é repassado ao Chrome nem à transcrição; o serviço lê o arquivo `env` só na hora de avisar.
 - As conversas têm dados pessoais (LGPD). Use só para o suporte interno.
 - Nunca faça commit de `.har`, perfil, `env`, configuração da equipe, documentos ou anexos.

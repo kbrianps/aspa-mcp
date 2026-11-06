@@ -15,12 +15,23 @@ function run(command, args, timeout = 120000) {
 
 const head = async () => (await run("git", ["rev-parse", "--short", "HEAD"])).out;
 
+async function latestTarget() {
+  const tags = (await run("git", ["tag", "--list", "v*", "--sort=-v:refname"])).out.split("\n").filter(Boolean);
+  return tags[0] ?? "@{u}";
+}
+
 export async function checkForUpdate() {
-  const fetched = await run("git", ["fetch", "--quiet", "origin"], 20000);
+  const fetched = await run("git", ["fetch", "--quiet", "--tags", "origin"], 20000);
   if (!fetched.ok) return { available: false, error: "Could not reach GitHub to check for updates." };
-  const behind = Number((await run("git", ["rev-list", "--count", "HEAD..@{u}"])).out || 0);
-  const latest = (await run("git", ["log", "-1", "--format=%h %s", "@{u}"])).out;
-  return { available: behind > 0, behind, current: await head(), latest };
+  const target = await latestTarget();
+  const behind = Number((await run("git", ["rev-list", "--count", `HEAD..${target}`])).out || 0);
+  const latest = (await run("git", ["log", "-1", "--format=%h %s", target])).out;
+  return { available: behind > 0, behind, current: await head(), target, latest };
+}
+
+async function installDependencies() {
+  const npm = await run("npm", ["ci", "--omit=dev", "--ignore-scripts", "--no-fund", "--no-audit"], 300000);
+  if (!npm.ok) throw new Error(`npm ci failed: ${npm.out || npm.error}`);
 }
 
 export async function update({ restartService = true } = {}) {
@@ -30,14 +41,19 @@ export async function update({ restartService = true } = {}) {
   const status = await checkForUpdate();
   if (status.error) throw new Error(status.error);
   if (!status.available) return { updated: false, version: before, message: "Already on the latest version." };
-  const changedFiles = (await run("git", ["diff", "--name-only", "HEAD", "@{u}"])).out.split("\n").filter(Boolean);
-  const pulled = await run("git", ["pull", "--ff-only", "--quiet"]);
-  if (!pulled.ok) throw new Error(`git pull failed: ${pulled.out || pulled.error}`);
+  const changedFiles = (await run("git", ["diff", "--name-only", "HEAD", status.target])).out.split("\n").filter(Boolean);
+  const merged = await run("git", ["merge", "--ff-only", "--quiet", status.target]);
+  if (!merged.ok) throw new Error(`git merge failed: ${merged.out || merged.error}`);
   let installed = "skipped (dependencies unchanged)";
   if (changedFiles.some((file) => /^package(-lock)?\.json$/.test(file))) {
-    const npm = await run("npm", ["ci", "--omit=dev", "--ignore-scripts", "--no-fund", "--no-audit"], 300000);
-    if (!npm.ok) throw new Error(`npm ci failed: ${npm.out || npm.error}`);
-    installed = "done";
+    try {
+      await installDependencies();
+      installed = "done";
+    } catch (error) {
+      await run("git", ["reset", "--keep", before]);
+      await installDependencies().catch(() => null);
+      throw new Error(`${error.message}. Rolled back to ${before}.`);
+    }
   }
   let service = "not restarted";
   const busy = restartService ? await call("health", {}, 10000).then((h) => h.interactive || (h.queue > 0 ? "queue" : null)).catch(() => null) : null;
@@ -56,6 +72,7 @@ export async function update({ restartService = true } = {}) {
     updated: true,
     from: before,
     to: await head(),
+    version: status.target,
     commits: status.behind,
     latest: status.latest,
     dependencies: installed,
@@ -71,7 +88,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
         console.log(`aspa-mcp já está na versão mais nova (${result.version}).`);
         return;
       }
-      console.log(`aspa-mcp atualizado: ${result.from} -> ${result.to} (${result.commits} commit(s)).`);
+      console.log(`aspa-mcp atualizado: ${result.from} -> ${result.to} (${result.version}, ${result.commits} commit(s)).`);
       console.log(`Última mudança: ${result.latest}`);
       console.log(`Dependências: ${result.dependencies}. Serviço: ${result.service}.`);
       console.log("Agora recarregue o MCP no cliente: Claude Code /mcp -> Reconnect aspa; Codex: feche e abra.");

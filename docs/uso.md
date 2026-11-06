@@ -36,7 +36,7 @@ Abra o Claude Code em qualquer pasta e **peça em português**, como pediria a u
 - **Nada é enviado sem a sua aprovação.** Enviar, transferir, adiar, concluir, reabrir e renomear sempre abrem uma caixa de permissão.
 - **Nunca marque "sempre permitir"** para essas ferramentas. Aprove uma por uma.
 - **Janela de 24h do WhatsApp**: depois de 24h sem mensagem do cliente, só dá para enviar **templates**. O Claude avisa e sugere um.
-- **Abrir uma conversa pode marcá-la como lida** no painel do Aspa. Para evitar, peça "lê sem marcar como lida" (`keepUnread`).
+- **Ler não marca como lida:** uma conversa não lida continua não lida depois de lida pelo assistente (leva alguns segundos a mais). Para marcar como lida, peça "lê e marca como lida".
 - **Conversa sem atendente** mostra "Assumir" no lugar da caixa de texto: peça "assume a conversa" antes de responder ou transferir.
 
 ---

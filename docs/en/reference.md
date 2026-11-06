@@ -6,9 +6,14 @@
 
 | File | Role |
 | --- | --- |
-| `index.mjs` | MCP server (stdio) used by Claude Code; guidelines and documents are read here |
+| `index.mjs` | MCP server (stdio) used by the assistant (Claude Code, Codex and others); guidelines and documents are read here |
+| `tools.mjs` | Single tool registry: name, kind (read, write, session, review), parameters and audit label |
 | `daemon.mjs` | Background service: Chrome, action queue, watcher and notifications; socket `$XDG_RUNTIME_DIR/aspa-mcp.sock` (600) |
-| `aspa.mjs` | Aspa panel automation |
+| `aspa.mjs` | Actions in the Aspa panel (read, send, transfer, snooze...) |
+| `panel.mjs` | Reading and clicking in the panel: list, conversation, menus, open-contact check |
+| `browser.mjs` | Hidden Chrome, action queue, health and attachment cleanup |
+| `watcher.mjs` | New-message watcher |
+| `ui-map.mjs` | Aspa panel URLs and labels |
 | `config.mjs` | Reads and validates `equipe.yaml` + `pessoal.yaml`, schedule and greeting |
 | `knowledge.mjs` | Lists, searches and reads the documents |
 | `notify.mjs` | Notification channels (Ubuntu, Slack, ntfy) |
@@ -29,9 +34,9 @@
 | `aspa_get_guidelines` | read | Company, tone, signature, time-of-day greeting, rules, examples, notifications and list of documents |
 | `aspa_search_knowledge` | read | Searches the documents (accent-insensitive) |
 | `aspa_read_knowledge` | read | Reads a document |
-| `aspa_login` | session | Window for you to sign in to Aspa (up to 5 min) |
+| `aspa_login` | session | Opens the window for you to sign in to Aspa (up to 5 min) and returns right away; confirm afterwards with `aspa_setup_check` |
 | `aspa_list_conversations` | read | Lists conversations (`tab`; `filters`: sem_usuario, sem_resposta, em_automacao, com_contexto, sessao_ativa, sem_sessao_ativa; `order`: recentes, antigas) |
-| `aspa_read_conversation` | read | Messages by `index` or `contact`; `loadMoreTimes` loads more history; `keepUnread` keeps it unread |
+| `aspa_read_conversation` | read | Messages by `index` or `contact`, with `conversation_id`; `loadMoreTimes` loads more history; an unread conversation stays unread (`keepUnread: false` marks it as read) |
 | `aspa_search_conversation` | read | Searches for words inside a conversation |
 | `aspa_statistics` | read | Panel statistics (today, active, no reply, snoozed, per agent) |
 | `aspa_quick_replies` | read | Saved **Respostas Rápidas** (Quick Replies) |
@@ -44,7 +49,7 @@
 | `aspa_send_template` | write | Template with `variables` |
 | `aspa_send_attachment` | write | Local file (up to 16 MB) with caption; only from your home folder (outside hidden folders), `/tmp` or downloaded attachments |
 | `aspa_open_draft` | window | Opens Aspa with the draft in the message box so you can review and send it |
-| `aspa_reply_to_message` | write | Replies quoting a message (`messageIndex`) |
+| `aspa_reply_to_message` | write | Replies quoting a message (`messageIndex` plus `quoted_text`, an excerpt of it, so the wrong message is never quoted) |
 | `aspa_assume` | write | Takes over a conversation with no agent or assigned to another agent |
 | `aspa_transfer` | write | Transfers **your own** conversation to another agent or team (Aspa does not let you transfer someone else's conversation: take it over instead) |
 | `aspa_mark_unread` | write | Marks as unread |
@@ -85,11 +90,13 @@ They live in `~/.config/aspa-mcp/env` (restart the service afterwards). Usage pr
 | `ASPA_CHROME_PATH` | `/usr/bin/google-chrome` | Chrome |
 | `ASPA_PROFILE_DIR` | `~/.local/share/aspa-mcp/profile` | Profile with the Aspa session |
 | `ASPA_CACHE_DIR` | `~/.cache/aspa-mcp` | Downloaded attachments |
+| `ASPA_ATTACHMENT_RETENTION_DAYS` | `7` | Deletes attachments downloaded more than this many days ago (`0` turns it off) |
+| `ASPA_CHROME_MEMORY_LIMIT_MB` | `1200` | Restarts the hidden Chrome when idle and above this memory use |
 | `ASPA_SOCKET` | `$XDG_RUNTIME_DIR/aspa-mcp.sock` | Service socket |
 | `ASPA_READ_ONLY` | `0` | `1` exposes only the read tools, the local setup tools, login and the review window (use it in other clients). In the `env` file it applies to the whole computer and the service refuses every write |
 | `ASPA_WATCH` | `1` | `0` turns off the watcher |
 | `ASPA_WATCH_INTERVAL_MS` | `20000` | Watcher interval |
-| `ASPA_WHISPER_DIR` | `/var/tmp/aspa-mcp/whisper` | Transcription install location |
+| `ASPA_WHISPER_DIR` | `~/.local/share/aspa-mcp/whisper` (or `/var/tmp/aspa-mcp/whisper` if already installed there) | Transcription install location |
 | `ASPA_WHISPER_MODEL` | `small` | Whisper model |
 | `ASPA_WHISPER_DEVICE` | `cpu` | `cpu` or `cuda` |
 
@@ -107,6 +114,7 @@ They live in `~/.config/aspa-mcp/env` (restart the service afterwards). Usage pr
 | `npm run setup-transcribe` | Installs local transcription |
 | `npm run atualizar` | Updates aspa-mcp and restarts the service |
 | `npm run saude` | Shows version, Chrome, queue and whether alerts are working |
+| `npm run doctor -- ["<contact>"]` | Checks that the Aspa panel looks the way aspa-mcp expects (list, tabs, menus and, with a contact, the conversation) |
 | `npm test` | Runs the automated tests |
 | `npm run slack -- [your ID]` | Sets up Slack notifications: asks for the token with hidden typing, validates, saves and tests |
 

@@ -1,45 +1,11 @@
 import { createHash } from "node:crypto";
-import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
+import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync } from "node:fs";
 import { homedir, hostname, userInfo } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { loadConfig } from "./config.mjs";
+import { ACTION_LABELS } from "./tools.mjs";
 
-export const WRITE_METHODS = new Set([
-  "sendMessage",
-  "sendTemplate",
-  "sendAttachment",
-  "transfer",
-  "assume",
-  "snooze",
-  "conclude",
-  "reopen",
-  "renameContact",
-  "openDraft",
-  "markUnread",
-  "replyToMessage",
-  "snoozeUntil",
-  "createContact",
-  "setPromotionsBlocked",
-]);
-
-const ACTION_LABELS = {
-  sendMessage: "enviar_mensagem",
-  sendTemplate: "enviar_template",
-  sendAttachment: "enviar_anexo",
-  transfer: "transferir",
-  assume: "assumir",
-  snooze: "adiar",
-  conclude: "concluir",
-  reopen: "reabrir",
-  renameContact: "renomear_contato",
-  openDraft: "abrir_rascunho",
-  draftClosed: "rascunho_fechado",
-  markUnread: "marcar_nao_lida",
-  replyToMessage: "responder_citando",
-  snoozeUntil: "adiar_ate",
-  createContact: "criar_contato",
-  setPromotionsBlocked: "bloquear_promocoes",
-};
+export { WRITE_METHODS } from "./tools.mjs";
 
 export const DEFAULT_AUDIT_FILE = join(homedir(), ".local", "share", "aspa-mcp", "auditoria.jsonl");
 
@@ -80,11 +46,60 @@ function details(method, args, includeText, status) {
       return { ate: `${args.date} ${args.time}`, comentario: text(args.comment) };
     case "createContact":
       return { nome: args.name, telefone: includeText ? args.phone : "[oculto]" };
+    case "updateSettings":
+      return { arquivo: args.file, chaves: Object.keys(args.changes ?? {}), valores: includeText ? args.changes : undefined };
+    case "saveKnowledge":
+      return { documento: args.path, tamanho: args.content?.length, substituir: !!args.overwrite };
+    case "configureSlack":
+      return { id_slack: args.user_id };
     case "setPromotionsBlocked":
       return { bloquear: args.blocked };
     default:
       return {};
   }
+}
+
+const RESULT_KEYS = new Set([
+  "sent",
+  "verified",
+  "conversation_id",
+  "template",
+  "file",
+  "path",
+  "transferred",
+  "to",
+  "snoozed",
+  "duration",
+  "until",
+  "panel_date",
+  "concluded",
+  "reopened",
+  "renamed",
+  "previous",
+  "saved",
+  "assumed",
+  "marked_unread",
+  "created",
+  "promotions_blocked",
+  "changed",
+  "opened",
+  "window_minutes",
+  "sent_by_user",
+  "messages_sent",
+  "reason",
+  "loggedIn",
+  "note",
+  "updated",
+  "from",
+  "replaced",
+  "backup",
+]);
+
+function safeResult(result, includeText) {
+  const kept = Object.fromEntries(Object.entries(result).filter(([key]) => RESULT_KEYS.has(key)));
+  if (result.replied_to) kept.replied_to = includeText ? result.replied_to : { index: result.replied_to.index };
+  if (Array.isArray(result.changed)) kept.changed = result.changed;
+  return Object.keys(kept).length ? kept : undefined;
 }
 
 export function recordAudit(record) {
@@ -113,22 +128,49 @@ function writeAudit({ method, args = {}, status, result, error, code, startedAt 
     detalhes: details(method, args, includeText, status),
     status,
     conferido_no_painel: result ? (result.verified ?? result.sent ?? result.renamed ?? result.reopened ?? result.transferred ?? result.assumed ?? result.opened ?? result.sent_by_user ?? result.marked_unread ?? result.created ?? undefined) : undefined,
-    resultado: result ? { ...result, contact: undefined } : undefined,
+    resultado: result ? safeResult(result, includeText) : undefined,
     erro: error,
     codigo_erro: code,
   };
   mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
+  rotateMonthly(file);
   appendFileSync(file, `${JSON.stringify(entry)}\n`, { mode: 0o600 });
   chmodSync(file, 0o600);
 }
 
+const monthOf = (date) => date.toISOString().slice(0, 7);
+
+function rotatedName(file, month) {
+  return file.replace(/(\.jsonl)?$/, (extension) => `-${month}${extension || ".jsonl"}`);
+}
+
+function rotateMonthly(file, now = new Date()) {
+  if (!existsSync(file)) return;
+  const month = monthOf(statSync(file).mtime);
+  if (month === monthOf(now)) return;
+  const target = rotatedName(file, month);
+  if (!existsSync(target)) renameSync(file, target);
+}
+
+function auditFiles(file) {
+  const folder = dirname(file);
+  if (!existsSync(folder)) return [];
+  const stem = basename(file).replace(/\.jsonl$/, "");
+  const rotated = readdirSync(folder)
+    .filter((name) => name.startsWith(`${stem}-`) && name.endsWith(".jsonl") && /^\d{4}-\d{2}$/.test(name.slice(stem.length + 1, -6)))
+    .sort()
+    .map((name) => join(folder, name));
+  return [...rotated, ...(existsSync(file) ? [file] : [])];
+}
+
 export function readAudit({ limit = 20, contact, since, action } = {}) {
   const { file } = settings();
-  if (!existsSync(file)) return { arquivo: file, total: 0, registros: [] };
+  const files = auditFiles(file);
+  if (!files.length) return { arquivo: file, total: 0, registros: [] };
   const sinceTime = since ? Date.parse(since) : NaN;
   const needle = contact?.toLowerCase();
-  const entries = readFileSync(file, "utf8")
-    .split("\n")
+  const entries = files
+    .flatMap((path) => readFileSync(path, "utf8").split("\n"))
     .filter(Boolean)
     .map((line) => {
       try {
@@ -141,5 +183,6 @@ export function readAudit({ limit = 20, contact, since, action } = {}) {
     .filter((e) => !needle || String(e.contato ?? "").toLowerCase().includes(needle))
     .filter((e) => !action || e.acao === action)
     .filter((e) => Number.isNaN(sinceTime) || Date.parse(e.quando) >= sinceTime);
-  return { arquivo: file, tamanho_kb: Math.ceil(statSync(file).size / 1024), total: entries.length, registros: entries.slice(-limit).reverse() };
+  const sizeKb = files.reduce((sum, path) => sum + statSync(path).size, 0) / 1024;
+  return { arquivo: file, arquivos: files.length, tamanho_kb: Math.ceil(sizeKb), total: entries.length, registros: entries.slice(-limit).reverse() };
 }

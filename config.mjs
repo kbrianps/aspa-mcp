@@ -82,6 +82,28 @@ const expandHome = (path) => (typeof path === "string" && path.startsWith("~/") 
 const asList = (value) => (Array.isArray(value) ? value : value ? [value] : []);
 const validTime = (value) => typeof value === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 
+const BOOLEANS = [
+  ["rascunhos", "saudacao_por_horario"],
+  ["auditoria", "incluir_texto"],
+  ["notificacoes", "apenas_mensagens_de_cliente"],
+  ["notificacoes", "nova_conversa"],
+  ["notificacoes", "mostrar_atendente"],
+  ["notificacoes", "sessao_expirada"],
+];
+const OPEN_FIELDS = new Set(["empresa"]);
+
+function unknownKeys(value, defaults, prefix, warnings) {
+  if (!isObject(value) || !isObject(defaults)) return;
+  for (const key of Object.keys(value)) {
+    const path = prefix ? `${prefix}.${key}` : key;
+    if (!(key in defaults)) {
+      if (!OPEN_FIELDS.has(prefix)) warnings.push(`${path}: campo desconhecido (erro de digitação?); será ignorado`);
+      continue;
+    }
+    unknownKeys(value[key], defaults[key], path, warnings);
+  }
+}
+
 function validate(config, errors) {
   for (const [section, defaults] of Object.entries(DEFAULTS)) {
     if (!isObject(config[section])) {
@@ -92,6 +114,13 @@ function validate(config, errors) {
   if (!isObject(config.notificacoes.horario)) {
     errors.push("notificacoes.horario: use inicio e fim no formato HH:MM");
     config.notificacoes.horario = { ...DEFAULTS.notificacoes.horario };
+  }
+  for (const [section, field] of BOOLEANS) {
+    const value = config[section][field];
+    if (typeof value !== "boolean") {
+      errors.push(`${section}.${field}: use true ou false (sem aspas), não "${value}"`);
+      config[section][field] = DEFAULTS[section][field];
+    }
   }
   const n = config.notificacoes;
   const filtered = (field, allowed) => {
@@ -121,7 +150,11 @@ function validate(config, errors) {
     n.fora_do_horario = DEFAULTS.notificacoes.fora_do_horario;
   }
   n.intervalo_minimo_minutos = Math.max(0, Number(n.intervalo_minimo_minutos) || 0);
-  for (const field of ["atendentes", "contatos_incluir", "contatos_ignorar"]) n[field] = asList(n[field]).map(String);
+  for (const field of ["atendentes", "contatos_incluir", "contatos_ignorar"]) {
+    const values = asList(n[field]).map(String);
+    if (values.some((v) => !v.trim())) errors.push(`notificacoes.${field}: tem um nome vazio, que foi ignorado`);
+    n[field] = values.filter((v) => v.trim());
+  }
   config.rascunhos.sempre = asList(config.rascunhos.sempre);
   config.rascunhos.nunca = asList(config.rascunhos.nunca);
   config.rascunhos.exemplos = asList(config.rascunhos.exemplos);
@@ -142,6 +175,8 @@ export function loadConfig() {
   const errors = [];
   const team = readYaml(TEAM_CONFIG, errors);
   const personal = readYaml(PERSONAL_CONFIG, errors);
+  unknownKeys(team, DEFAULTS, "", errors);
+  unknownKeys(personal, DEFAULTS, "", errors);
   const config = validate(merge(merge(structuredClone(DEFAULTS), team), personal), errors);
   const sources = [team && TEAM_CONFIG, personal && PERSONAL_CONFIG].filter(Boolean);
   return { config, sources, errors };
@@ -187,8 +222,9 @@ export function passesFilters(n, item) {
     const agent = normalizeName(item.agent);
     const wanted = n.atendentes.map(normalizeName);
     const assigned = item.assigned ?? !!item.agent;
+    const words = ` ${agent.replace(/\s+/g, " ")} `;
     const match = assigned
-      ? !!item.agent && wanted.some((name) => name !== "sem_atendente" && agent.includes(name))
+      ? !!item.agent && wanted.some((name) => name !== "sem_atendente" && words.includes(` ${name.replace(/\s+/g, " ")} `))
       : wanted.includes("sem_atendente");
     if (!match) return false;
   }

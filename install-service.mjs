@@ -22,7 +22,9 @@ ExecStart=${process.execPath} ${join(root, "daemon.mjs")}
 WorkingDirectory=${root}
 Restart=on-failure
 RestartSec=15
-EnvironmentFile=-${ENV_FILE}
+TimeoutStopSec=30
+MemoryHigh=1500M
+MemoryMax=2500M
 ${passthrough}
 
 [Install]

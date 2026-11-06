@@ -22,7 +22,7 @@ Every action aspa-mcp takes that changes something in Aspa is logged, **includin
 
 Each entry also has: date and time, duration, user and computer, contact, status (`ok` or `erro`), whether the result was verified in the panel, and the error message when there is one. In the terminal, actions that ran but could not be confirmed in the panel show up as **NÃO CONFERIDO** (not verified).
 
-- **Where it is**: `~/.local/share/aspa-mcp/auditoria.jsonl` (one JSON line per action, only you can read it; the file only grows, nothing is deleted).
+- **Where it is**: `~/.local/share/aspa-mcp/auditoria.jsonl` (one JSON line per action, only you can read it; nothing is deleted). Each month the previous file becomes `auditoria-YYYY-MM.jsonl`, and queries read all of them. Configuration, document, Slack ID, login and update changes are logged too.
 - **View it in the terminal**:
 
   ```sh
@@ -59,6 +59,7 @@ Each entry also has: date and time, duration, user and computer, contact, status
 - `~/.local/share/aspa-mcp/profile` holds an **active Aspa session**: treat it like a password.
 - `~/.config/aspa-mcp/env` holds the Slack token: do not share it or commit it.
 - `~/.config/aspa-mcp/equipe.yaml` and `conhecimento/` contain internal information: share them only through private channels.
-- Downloaded attachments are stored in `~/.cache/aspa-mcp`: delete them when you are done (`rm -rf ~/.cache/aspa-mcp/attachments`).
+- Downloaded attachments are stored in `~/.cache/aspa-mcp` and deleted automatically after 7 days (`ASPA_ATTACHMENT_RETENTION_DAYS`). To delete them now: `rm -rf ~/.cache/aspa-mcp/attachments`.
+- The Slack token is not passed to Chrome or to transcription; the service reads the `env` file only when sending an alert.
 - Conversations contain personal data (LGPD). Use them only for internal support.
 - Never commit `.har` files, the profile, `env`, the team configuration, documents or attachments.
