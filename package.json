@@ -16,7 +16,8 @@
     "test-notify": "node test-notify.mjs",
     "init-config": "node init-config.mjs",
     "auditoria": "node audit-cli.mjs",
-    "atualizar": "node update.mjs"
+    "atualizar": "node update.mjs",
+    "slack": "node configure-slack.mjs"
   },
   "engines": {
     "node": ">=20"

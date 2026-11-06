@@ -22,12 +22,12 @@ function readEnvFile() {
 
 export function setEnvValue(key, value) {
   mkdirSync(dirname(ENV_FILE), { recursive: true });
-  const lines = existsSync(ENV_FILE) ? readFileSync(ENV_FILE, "utf8").split("\n") : [];
+  const lines = existsSync(ENV_FILE) ? readFileSync(ENV_FILE, "utf8").replace(/\n+$/, "").split("\n").filter((line, i, all) => line || i < all.length - 1) : [];
   const pattern = new RegExp(`^#?\\s*${key}=.*$`);
   const index = lines.findIndex((line) => pattern.test(line));
   if (index >= 0) lines[index] = `${key}=${value}`;
   else lines.push(`${key}=${value}`);
-  writeFileSync(ENV_FILE, `${lines.filter((line, i) => line || i < lines.length - 1).join("\n")}\n`, { mode: 0o600 });
+  writeFileSync(ENV_FILE, `${lines.join("\n")}\n`, { mode: 0o600 });
 }
 
 function ensureConfigFiles() {
@@ -91,8 +91,8 @@ export function setupCheck({ service, session }) {
     slackReady,
     "Aviso no Slack (token e ID do usuário)",
     !env.ASPA_SLACK_USER_ID
-      ? "Peça o ID de membro do Slack (foto → Perfil → ⋮ → Copiar ID do membro, começa com U) e grave com aspa_configure_slack. O token o usuário cola sozinho no arquivo ~/.config/aspa-mcp/env (linha ASPA_SLACK_BOT_TOKEN=), sem mandar no chat."
-      : "Falta o token: o usuário cola sozinho no arquivo ~/.config/aspa-mcp/env, linha ASPA_SLACK_BOT_TOKEN=xoxb-... (sem mandar no chat), e reinicia com systemctl --user restart aspa-mcp.",
+      ? "Peça o ID de membro do Slack (foto → Perfil → ⋮ → Copiar ID do membro, começa com U) e grave com aspa_configure_slack. Para o token, o usuário roda no terminal: cd ~/dev/aspa-mcp && npm run slack (cola o token quando pedir, sem mandar no chat)."
+      : "Falta o token: o usuário roda no terminal cd ~/dev/aspa-mcp && npm run slack e cola o token quando pedir (a digitação fica oculta e não passa pelo chat). O comando já testa o envio."
   );
   add(
     "notificacoes",

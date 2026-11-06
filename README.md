@@ -175,7 +175,13 @@ No Claude Code também dá para usar o comando pronto `/mcp__aspa__configurar`.
 
 O assistente roda um checklist (serviço, login, empresa, tom, assinatura, documentos, Slack, notificações e transcrição) e resolve os itens pendentes **um de cada vez**: faz perguntas, mostra o que vai gravar e salva nos seus arquivos de configuração depois que você confirmar. Ele cria os documentos da empresa a partir do que você contar ou colar, sem inventar nada.
 
-O token do Slack é a única coisa que ele **não** grava: você mesmo cola no arquivo `~/.config/aspa-mcp/env`, para o segredo não passar pelo modelo.
+O token do Slack é a única coisa que ele **não** grava, para o segredo não passar pelo modelo. Para ele, rode no terminal:
+
+```sh
+cd ~/dev/aspa-mcp && npm run slack
+```
+
+Cole o token quando pedir (a digitação fica oculta). O comando confere o token com o Slack, salva e manda uma mensagem de teste para você.
 
 ✅ **Instalação concluída.** Os passos manuais das seções 5 e 6 continuam valendo para quem prefere editar os arquivos direto.
 
@@ -639,22 +645,16 @@ O aviso chega numa conversa privada com o app **Aspa Chat** (no Slack, em **Apps
 #### Parte 2: cada pessoa configura no próprio computador
 
 1. **Seu ID do Slack**: sua foto → **Perfil** → **⋮** → **Copiar ID do membro** (começa com `U`).
-2. No `~/.config/aspa-mcp/env`, sem o `#`:
-
-   ```
-   ASPA_SLACK_BOT_TOKEN=xoxb-...
-   ASPA_SLACK_USER_ID=U0123456789
-   ```
-
-3. Confira que `slack` está em `notificacoes.canais` no `pessoal.yaml`.
-4. Reinicie e teste:
+2. No terminal, rode o comando com o seu ID e cole o token quando pedir (a digitação fica oculta):
 
    ```sh
-   systemctl --user restart aspa-mcp
-   cd ~/dev/aspa-mcp && npm run test-notify
+   cd ~/dev/aspa-mcp && npm run slack -- U0123456789
    ```
 
-   Esperado: `channels: desktop, slack-dm` e `sent to all channels`, e a mensagem "✅ Notificações do aspa-mcp funcionando" em **Apps** → **Aspa Chat**.
+   Ele confere o token com o Slack, salva os dois no `~/.config/aspa-mcp/env` e manda a mensagem "✅ Notificações do aspa-mcp funcionando" em **Apps** → **Aspa Chat**. Não precisa reiniciar nada.
+3. Confira que `slack` está em `notificacoes.canais` no `pessoal.yaml`.
+
+   Prefere editar à mão? No `~/.config/aspa-mcp/env`, sem o `#`: `ASPA_SLACK_BOT_TOKEN=xoxb-...` e `ASPA_SLACK_USER_ID=U...`. Para testar depois: `npm run test-notify`.
 
    Como os avisos aparecem no Slack:
 
@@ -981,6 +981,7 @@ Ficam em `~/.config/aspa-mcp/env` (reinicie o serviço depois). As preferências
 | `npm run auditoria -- [quantidade] [contato]` | Mostra o registro de auditoria |
 | `npm run setup-transcribe` | Instala a transcrição local |
 | `npm run atualizar` | Atualiza o aspa-mcp e reinicia o serviço |
+| `npm run slack -- [seu ID]` | Configura o aviso no Slack: pede o token com digitação oculta, valida, salva e testa |
 
 ### Limitações técnicas
 

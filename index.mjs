@@ -361,13 +361,13 @@ server.registerTool(
   "aspa_configure_slack",
   {
     description:
-      "Save the user's Slack member ID (starts with U) so notifications go to their Slack DM. The bot token is NOT accepted here: tell the user to paste it themselves in ~/.config/aspa-mcp/env (line ASPA_SLACK_BOT_TOKEN=xoxb-...) and never in the chat.",
+      "Save the user's Slack member ID (starts with U) so notifications go to their Slack DM. The bot token is NOT accepted here: tell the user to run `cd ~/dev/aspa-mcp && npm run slack` in a terminal and paste the token when asked (hidden input, validated with Slack, sends a test message). Never ask for the token in the chat.",
     inputSchema: { user_id: z.string().regex(/^[UW][A-Z0-9]{6,}$/, "Slack member IDs start with U or W, e.g. U0123456789.") },
     annotations: SETUP,
   },
   local(({ user_id }) => {
     setEnvValue("ASPA_SLACK_USER_ID", user_id);
-    return { saved: true, user_id, next: "If the token is not set yet, the user pastes it in ~/.config/aspa-mcp/env. Then call aspa_test_notifications." };
+    return { saved: true, user_id, next: "If the token is not set yet, the user runs `cd ~/dev/aspa-mcp && npm run slack` in a terminal and pastes it there. Then call aspa_test_notifications." };
   }),
 );
 
@@ -396,7 +396,7 @@ server.registerPrompt(
           text:
             "Quero configurar o aspa-mcp. Rode aspa_setup_check e me guie pelos itens pendentes, um de cada vez, em português. " +
             "Para cada item, me explique em uma frase, me pergunte o que precisar e salve com as ferramentas de configuração depois que eu confirmar. " +
-            "Para o login, chame aspa_login. Para o Slack, me peça só o ID de membro; o token eu colo sozinho no arquivo env. " +
+            "Para o login, chame aspa_login. Para o Slack, me peça só o ID de membro; para o token, me diga para rodar npm run slack no terminal. " +
             "Para os documentos da empresa, me pergunte sobre planos e preços, prazos, políticas e perguntas frequentes, e salve um arquivo por assunto sem inventar nada. " +
             "No fim, rode aspa_setup_check de novo e aspa_test_notifications.",
         },
