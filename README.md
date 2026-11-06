@@ -505,7 +505,7 @@ Exemplos prontos (cole no `pessoal.yaml`):
 | Toda mensagem nova, de qualquer atendente | `abas: [todos]` |
 | Só as minhas conversas | `abas: [meus]` |
 | As minhas e as que ninguém pegou | `abas: [todos]` e `atendentes: [Seu Nome, sem_atendente]` |
-| Só as do Lucas | `abas: [todos]` e `atendentes: [Lucas]` |
+| Só as da Ana | `abas: [todos]` e `atendentes: [Ana]` |
 | Tudo, menos um contato de testes | `contatos_ignorar: [Teste]` |
 | Só de um cliente importante | `abas: [todos]` e `contatos_incluir: [ACME]` |
 
