@@ -38,7 +38,9 @@ const TUPLES = [
         .array(z.enum(["sem_usuario", "sem_resposta", "em_automacao", "com_contexto", "sessao_ativa", "sem_sessao_ativa"]))
         .optional()
         .describe("Panel list filters, applied only for this listing and removed afterwards."),
-      order: z.enum(["recentes", "antigas"]).optional(),
+      order: z.enum(["recentes", "antigas"]).optional().describe("recentes (default) or antigas (oldest first)."),
+      limit: z.number().int().min(1).max(200).optional().describe("Maximum conversations to return (default 50)."),
+      cursor: z.number().int().min(0).optional().describe("next_cursor from the previous page."),
     },
     READ,
   ],
@@ -175,14 +177,25 @@ const TUPLES = [
     "aspa_snooze_until",
     "snoozeUntil",
     "Snooze a conversation until a specific date and time (Brasília time, 15-minute steps), with an optional internal comment." + APPROVAL,
-    { ...writeTarget, date: z.string().describe("YYYY-MM-DD"), time: z.string().describe("HH:MM, minutes 00/15/30/45"), comment: z.string().optional() },
+    {
+      ...writeTarget,
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.").describe("YYYY-MM-DD"),
+      time: z.string().regex(/^([01]\d|2[0-3]):(00|15|30|45)$/, "Use HH:MM in 15-minute steps.").describe("HH:MM, minutes 00/15/30/45"),
+      comment: z.string().optional(),
+    },
     WRITE,
   ],
   [
     "aspa_create_contact",
     "createContact",
     "Create a new contact in Aspa (name and phone with country and area code, e.g. 5541999999999)." + APPROVAL,
-    { name: z.string().min(1), phone: z.string().min(8) },
+    {
+      name: z.string().min(1),
+      phone: z
+        .string()
+        .regex(/^\+?[\d\s().-]{10,20}$/, "Use the full number with country and area code, e.g. 5541999999999.")
+        .describe("Full number with country and area code, e.g. 5541999999999."),
+    },
     WRITE,
   ],
   [
@@ -253,6 +266,51 @@ export const TOOLS = TUPLES.map(([name, method, description, inputSchema, annota
   kind: kindOf(name, annotations),
   audit: AUDIT_LABELS[method],
 }));
+
+export const TITLES = {
+  aspa_login: "Entrar no Aspa",
+  aspa_list_conversations: "Listar conversas",
+  aspa_read_conversation: "Ler conversa",
+  aspa_download_attachments: "Baixar anexos",
+  aspa_transcribe_audio: "Transcrever áudios",
+  aspa_search_conversation: "Buscar na conversa",
+  aspa_statistics: "Estatísticas",
+  aspa_quick_replies: "Respostas rápidas",
+  aspa_list_concluded: "Conversas concluídas",
+  aspa_search_contact: "Buscar contato",
+  aspa_list_templates: "Listar templates",
+  aspa_send_message: "Enviar mensagem",
+  aspa_send_template: "Enviar template",
+  aspa_send_attachment: "Enviar anexo",
+  aspa_transfer: "Transferir conversa",
+  aspa_open_draft: "Abrir rascunho no Aspa",
+  aspa_reply_to_message: "Responder citando",
+  aspa_mark_unread: "Marcar como não lida",
+  aspa_snooze_until: "Adiar até data",
+  aspa_create_contact: "Criar contato",
+  aspa_block_promotions: "Bloquear promoções",
+  aspa_assume: "Assumir conversa",
+  aspa_snooze: "Adiar conversa",
+  aspa_conclude: "Concluir conversa",
+  aspa_reopen: "Reabrir conversa",
+  aspa_rename_contact: "Renomear contato",
+  aspa_get_guidelines: "Diretrizes de resposta",
+  aspa_setup_check: "Checklist de configuração",
+  aspa_update: "Atualizar o aspa-mcp",
+  aspa_update_settings: "Alterar configuração",
+  aspa_save_knowledge: "Salvar documento",
+  aspa_configure_slack: "Configurar Slack",
+  aspa_test_notifications: "Testar avisos",
+  aspa_audit_log: "Registro de auditoria",
+  aspa_search_knowledge: "Buscar nos documentos",
+  aspa_read_knowledge: "Ler documento",
+};
+
+const IDEMPOTENT = new Set(["markUnread", "setPromotionsBlocked", "renameContact", "assume"]);
+for (const tool of TOOLS) {
+  tool.title = TITLES[tool.name];
+  tool.annotations = { ...tool.annotations, title: tool.title, ...(IDEMPOTENT.has(tool.method) ? { idempotentHint: true } : {}) };
+}
 
 export const READ_ONLY_KINDS = new Set(["read", "session", "review"]);
 export const WRITE_METHODS = new Set(TOOLS.filter((tool) => tool.audit).map((tool) => tool.method));

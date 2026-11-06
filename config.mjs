@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { parse } from "yaml";
+import { normalizeText } from "./common.mjs";
 
 export const CONFIG_DIR = process.env.ASPA_CONFIG_DIR || join(homedir(), ".config", "aspa-mcp");
 export const TEAM_CONFIG = process.env.ASPA_TEAM_CONFIG || join(CONFIG_DIR, "equipe.yaml");
@@ -207,12 +208,7 @@ export function greetingFor(timeZone, date = new Date()) {
   return hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
 }
 
-export const normalizeName = (value) =>
-  String(value ?? "")
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .trim();
+export const normalizeName = (value) => normalizeText(value).trim();
 
 export function passesFilters(n, item) {
   const contact = normalizeName(item.contact);

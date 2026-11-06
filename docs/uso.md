@@ -17,10 +17,10 @@ Abra o Claude Code em qualquer pasta e **peça em português**, como pediria a u
 3. **Pedir um rascunho**
    > Prepara um rascunho de resposta. Não envie ainda.
 
-   O Claude consulta automaticamente o tom, as regras e os documentos da equipe.
+   O assistente consulta automaticamente o tom, as regras e os documentos da equipe.
 4. **Revisar**: peça ajustes se quiser ("mais curto", "explica melhor o passo 2").
 5. **Enviar** (escolha um jeito)
-   - Pelo Claude:
+   - Pelo assistente:
      > Pode enviar.
 
      O Claude Code mostra uma **caixa de permissão** com o texto exato. Confira e aprove.
@@ -35,7 +35,7 @@ Abra o Claude Code em qualquer pasta e **peça em português**, como pediria a u
 
 - **Nada é enviado sem a sua aprovação.** Enviar, transferir, adiar, concluir, reabrir e renomear sempre abrem uma caixa de permissão.
 - **Nunca marque "sempre permitir"** para essas ferramentas. Aprove uma por uma.
-- **Janela de 24h do WhatsApp**: depois de 24h sem mensagem do cliente, só dá para enviar **templates**. O Claude avisa e sugere um.
+- **Janela de 24h do WhatsApp**: depois de 24h sem mensagem do cliente, só dá para enviar **templates**. O assistente avisa e sugere um.
 - **Ler não marca como lida:** uma conversa não lida continua não lida depois de lida pelo assistente (leva alguns segundos a mais). Para marcar como lida, peça "lê e marca como lida".
 - **Conversa sem atendente** mostra "Assumir" no lugar da caixa de texto: peça "assume a conversa" antes de responder ou transferir.
 

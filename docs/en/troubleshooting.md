@@ -6,7 +6,7 @@
 | --- | --- |
 | `DAEMON_DOWN`: "O serviço do aspa-mcp não está rodando" (service not running) | `systemctl --user restart aspa-mcp` |
 | `SESSION_EXPIRED` or the "Sessão expirada" (Session expired) notification | Ask the assistant to "sign in to Aspa" or run `npm run smoke -- --login` |
-| `aspa` does not show up in `/mcp` | Redo [step 4](installation.md#step-4-connect-to-claude-code) and restart Claude Code |
+| `aspa` does not show up in `/mcp` (Claude Code) or in `codex mcp list` (Codex) | Redo [step 4](installation.md#step-4-connect-to-claude-code) or see [Other clients](other-clients.md) and restart the client |
 | `AMBIGUOUS`: more than one conversation matches | Use the full name; if two contacts share the name, also pass the number from the list |
 | `WRONG_CONVERSATION` | The open conversation was not the requested one and nothing was done. Read the conversation again and retry |
 | `DUPLICATE` | The same message was sent less than 2 minutes ago. Check Aspa before repeating |
@@ -16,12 +16,12 @@
 | `NOT_FOUND`: conversation not found | Ask the assistant to list the conversations first |
 | Alerts stopped, or the "Avisos do Aspa parados" alert | `npm run saude` and `npm run doctor`; then `systemctl --user restart aspa-mcp` |
 | Reading is slow | The first action after a restart waits for the panel to load (up to about 1 minute). After that it is fast |
-| Drafts ignore the team's tone | Ask Claude to "show the Aspa guidelines" and check `erros_de_configuracao` |
+| Drafts ignore the team's tone | Ask the assistant to "show the Aspa guidelines" and check `erros_de_configuracao` |
 | Notifications do not arrive | Check `dias`, `horario` and `canais` in `pessoal.yaml`; run `npm run test-notify` |
 | I want to see what the service is doing | `journalctl --user -u aspa-mcp -f` |
-| macOS | Instead of step 2, keep a terminal open running `npm run daemon`. For a different Chrome location: `export ASPA_CHROME_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"` |
+| macOS (not tested) | aspa-mcp is only tested on Linux with systemd. On macOS, instead of step 2, keep a terminal open running `npm run daemon`. For a different Chrome location: `export ASPA_CHROME_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"` |
 | Sign out of the Aspa account | `systemctl --user stop aspa-mcp && rm -rf ~/.local/share/aspa-mcp/profile` |
-| Uninstall | `systemctl --user disable --now aspa-mcp && claude mcp remove aspa --scope user` |
+| Uninstall | `systemctl --user disable --now aspa-mcp`, then `claude mcp remove aspa --scope user` or `codex mcp remove aspa` |
 
 ```sh
 systemctl --user status aspa-mcp         # is it running?

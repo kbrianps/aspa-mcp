@@ -24,7 +24,9 @@ export const PROFILE_DIR = process.env.ASPA_PROFILE_DIR || join(DATA_DIR, "profi
 
 export const CACHE_DIR = process.env.ASPA_CACHE_DIR || join(homedir(), ".cache", "aspa-mcp");
 
-export const CHROME_PATH = process.env.ASPA_CHROME_PATH || "/usr/bin/google-chrome";
+const CHROME_CANDIDATES = ["/usr/bin/google-chrome", "/usr/bin/google-chrome-stable", "/opt/google/chrome/chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser", "/snap/bin/chromium"];
+
+export const CHROME_PATH = process.env.ASPA_CHROME_PATH || CHROME_CANDIDATES.find((path) => existsSync(path)) || CHROME_CANDIDATES[0];
 
 export const MAX_ATTACHMENT_BYTES = 16 * 1024 * 1024;
 
@@ -210,6 +212,14 @@ export const preparedPages = new WeakSet();
 export async function preparePage(page) {
   if (!preparedPages.has(page)) {
     preparedPages.add(page);
+    page.setDefaultTimeout(30000);
+    page.on("dialog", (dialog) => dialog.dismiss().catch(() => null));
+    page.on("error", (error) => {
+      console.error(`[chrome] tab crashed: ${error.message}`);
+      if (workPage === page) workPage = null;
+      if (watchPage === page) watchPage = null;
+      page.close().catch(() => null);
+    });
     await page.evaluateOnNewDocument(PAGE_HELPERS);
   }
   await page.evaluate(PAGE_HELPERS).catch(() => null);

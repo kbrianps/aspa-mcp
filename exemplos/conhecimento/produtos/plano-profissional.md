@@ -4,14 +4,14 @@
 
 | Item | Valor |
 | --- | --- |
-| Preço | R$ 89,90 por câmera por mês |
-| Câmeras | sem limite |
-| Gravações | 60 dias |
-| Usuários no app | ilimitados |
-| Alertas | movimento, pessoa, veículo e leitura de placa |
-| Suporte | WhatsApp em horário comercial e plantão 24h para câmera offline |
+| Preço | R$ 189,90 por mês |
+| Velocidade | 700 Mbps de download e 350 Mbps de upload |
+| Tecnologia | fibra óptica até o local |
+| Wi‑Fi | roteador Wi‑Fi 6 e um ponto extra de Wi‑Fi em comodato |
+| Aparelhos conectados | até 40 ao mesmo tempo |
+| Suporte | WhatsApp em horário comercial e plantão 24h para queda de internet |
 | Visita técnica | incluída |
-| Relatórios | resumo mensal de eventos por e-mail |
+| Extras | IP fixo para pequenas empresas |
 | Fidelidade | anual (multa de 20% sobre o restante em caso de cancelamento) |
 
 ## Upgrade do Essencial

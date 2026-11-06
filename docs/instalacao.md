@@ -69,7 +69,7 @@ npm run smoke -- --login
 2. Entre com o **seu** e-mail e senha do Aspa.
 3. Quando o painel carregar, a janela **fecha sozinha**.
 
-> Sua senha é digitada só nessa janela. Ela não passa pelo Claude nem fica salva no projeto.
+> Sua senha é digitada só nessa janela. Ela não passa pelo assistente nem fica salva no projeto.
 
 ### Passo 6: testar
 

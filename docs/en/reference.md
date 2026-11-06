@@ -35,12 +35,12 @@
 | `aspa_search_knowledge` | read | Searches the documents (accent-insensitive) |
 | `aspa_read_knowledge` | read | Reads a document |
 | `aspa_login` | session | Opens the window for you to sign in to Aspa (up to 5 min) and returns right away; confirm afterwards with `aspa_setup_check` |
-| `aspa_list_conversations` | read | Lists conversations (`tab`; `filters`: sem_usuario, sem_resposta, em_automacao, com_contexto, sessao_ativa, sem_sessao_ativa; `order`: recentes, antigas) |
+| `aspa_list_conversations` | read | Lists conversations (`tab`; `filters`: sem_usuario, sem_resposta, em_automacao, com_contexto, sessao_ativa, sem_sessao_ativa; `order`: recentes, antigas; `limit` and `cursor` to page, with `next_cursor`) |
 | `aspa_read_conversation` | read | Messages by `index` or `contact`, with `conversation_id`; `loadMoreTimes` loads more history; an unread conversation stays unread (`keepUnread: false` marks it as read) |
 | `aspa_search_conversation` | read | Searches for words inside a conversation |
 | `aspa_statistics` | read | Panel statistics (today, active, no reply, snoozed, per agent) |
 | `aspa_quick_replies` | read | Saved **Respostas Rápidas** (Quick Replies) |
-| `aspa_list_concluded` | read | Closed conversations, with name search and pagination |
+| `aspa_list_concluded` | read | Closed conversations, with name search and pagination (`pageNumber`; `has_more` tells whether there is a next page) |
 | `aspa_search_contact` | read | Searches for a contact by name or phone number |
 | `aspa_download_attachments` | read | Saves attachments to `~/.cache/aspa-mcp/attachments/<contato>/` |
 | `aspa_transcribe_audio` | read, optional | Transcribes audio locally |
@@ -87,11 +87,11 @@ They live in `~/.config/aspa-mcp/env` (restart the service afterwards). Usage pr
 | `ASPA_NTFY_SHOW_CONTACT` | `0` | `1` shows the contact in ntfy |
 | `ASPA_CONFIG_DIR` | `~/.config/aspa-mcp` | Folder for the configuration files |
 | `ASPA_TEAM_CONFIG` / `ASPA_PERSONAL_CONFIG` | `equipe.yaml` / `pessoal.yaml` in the folder above | Alternative paths |
-| `ASPA_CHROME_PATH` | `/usr/bin/google-chrome` | Chrome |
+| `ASPA_CHROME_PATH` | detects Google Chrome or Chromium | Browser path |
 | `ASPA_PROFILE_DIR` | `~/.local/share/aspa-mcp/profile` | Profile with the Aspa session |
 | `ASPA_CACHE_DIR` | `~/.cache/aspa-mcp` | Downloaded attachments |
 | `ASPA_ATTACHMENT_RETENTION_DAYS` | `7` | Deletes attachments downloaded more than this many days ago (`0` turns it off) |
-| `ASPA_CHROME_MEMORY_LIMIT_MB` | `1200` | Restarts the hidden Chrome when idle and above this memory use |
+| `ASPA_CHROME_MEMORY_LIMIT_MB` | `2500` | Restarts the hidden Chrome when idle and above this memory use |
 | `ASPA_SOCKET` | `$XDG_RUNTIME_DIR/aspa-mcp.sock` | Service socket |
 | `ASPA_READ_ONLY` | `0` | `1` exposes only the read tools, the local setup tools, login and the review window (use it in other clients). In the `env` file it applies to the whole computer and the service refuses every write |
 | `ASPA_WATCH` | `1` | `0` turns off the watcher |
@@ -137,4 +137,4 @@ npx -y @mermaid-js/mermaid-cli -i assets/flow.en.mmd -o assets/flow.en.png -b "#
 
 ### Do I need `/chrome` (Claude in Chrome)?
 
-No. aspa-mcp has its own invisible Chrome. `/chrome` is only useful if you want Claude to look at Aspa open in **your** browser.
+No. aspa-mcp has its own invisible Chrome. `/chrome` is only useful if you want the assistant to look at Aspa open in **your** browser.

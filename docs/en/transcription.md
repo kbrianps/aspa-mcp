@@ -19,4 +19,4 @@ ASPA_WHISPER_MODEL=medium npm run setup-transcribe
 systemctl --user restart aspa-mcp
 ```
 
-If it is not installed, Claude simply tells you that transcription is not enabled.
+If it is not installed, the assistant simply tells you that transcription is not enabled.

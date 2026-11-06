@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { CODES, fail } from "./errors.mjs";
 
 const LEGACY_DIR = "/var/tmp/aspa-mcp/whisper";
@@ -11,7 +12,7 @@ export const WHISPER_DIR =
 export const WHISPER_PYTHON = join(WHISPER_DIR, "venv", "bin", "python");
 export const WHISPER_MODELS = join(WHISPER_DIR, "models");
 export const WHISPER_READY = join(WHISPER_DIR, "ready.json");
-const SCRIPT = new URL("./transcribe.py", import.meta.url).pathname;
+export const SCRIPT = fileURLToPath(new URL("./transcribe.py", import.meta.url));
 
 export function ownedByMe(path) {
   try {

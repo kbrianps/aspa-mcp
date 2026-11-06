@@ -23,7 +23,7 @@
 - It does not transcribe in the cloud; without the optional install, it does not transcribe at all.
 - It does not apply Aspa journeys, tags or subjects (the account has none configured).
 - It does not edit a contact's email or company (the account has no permission for that in the panel) and does not delete contacts (the panel has no such option).
-- Bulk actions: the panel only offers bulk transfer, snooze and close; Claude does the same one conversation at a time.
+- Bulk actions: the panel only offers bulk transfer, snooze and close; The assistant does the same one conversation at a time.
 - It does not change your agent status or record audio (to send audio, use a file with `aspa_send_attachment`).
 - It does not watch videos: it only downloads the file.
 - It does not put message text in notifications.

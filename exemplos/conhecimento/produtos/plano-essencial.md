@@ -4,11 +4,11 @@
 
 | Item | Valor |
 | --- | --- |
-| Preço | R$ 49,90 por câmera por mês |
-| Câmeras | 1 a 8 |
-| Gravações | 30 dias |
-| Usuários no app | até 3 |
-| Alertas | movimento e pessoa |
+| Preço | R$ 99,90 por mês |
+| Velocidade | 300 Mbps de download e 150 Mbps de upload |
+| Tecnologia | fibra óptica até o local |
+| Wi‑Fi | roteador Wi‑Fi 5 em comodato |
+| Aparelhos conectados | até 15 ao mesmo tempo |
 | Suporte | WhatsApp em horário comercial |
 | Visita técnica | R$ 150 por visita |
 | Fidelidade | mensal, sem multa |
@@ -16,5 +16,5 @@
 ## Não inclui
 
 - Plantão 24h
-- Alertas de veículo e placa
-- Relatórios mensais
+- Ponto extra de Wi‑Fi
+- IP fixo

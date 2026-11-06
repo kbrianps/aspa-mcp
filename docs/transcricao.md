@@ -21,4 +21,4 @@ ASPA_WHISPER_MODEL=medium npm run setup-transcribe
 systemctl --user restart aspa-mcp
 ```
 
-Sem instalar, o Claude apenas avisa que a transcrição não está ativada.
+Sem instalar, o assistente apenas avisa que a transcrição não está ativada.

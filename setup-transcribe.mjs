@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { ownedByMe, WHISPER_DIR, WHISPER_MODELS, WHISPER_PYTHON, WHISPER_READY } from "./transcription.mjs";
+import { ownedByMe, SCRIPT, WHISPER_DIR, WHISPER_MODELS, WHISPER_PYTHON, WHISPER_READY } from "./transcription.mjs";
 
 const model = process.env.ASPA_WHISPER_MODEL || "small";
 mkdirSync(WHISPER_MODELS, { recursive: true, mode: 0o700 });
@@ -16,7 +16,7 @@ if (!existsSync(WHISPER_PYTHON)) {
 console.log("Installing faster-whisper");
 execFileSync(WHISPER_PYTHON, ["-m", "pip", "install", "-q", "--upgrade", "faster-whisper==1.2.1", "av<16"], { stdio: "inherit" });
 console.log(`Downloading Whisper model "${model}" to ${WHISPER_MODELS}`);
-execFileSync(WHISPER_PYTHON, [new URL("./transcribe.py", import.meta.url).pathname, "--download-only"], {
+execFileSync(WHISPER_PYTHON, [SCRIPT, "--download-only"], {
   stdio: "inherit",
   env: { ...process.env, ASPA_WHISPER_MODEL: model, ASPA_WHISPER_MODELS: WHISPER_MODELS },
 });

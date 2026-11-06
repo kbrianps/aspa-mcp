@@ -1,11 +1,17 @@
+import { existsSync } from "node:fs";
 import { request } from "node:http";
 import { connect } from "node:net";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { AspaError, CODES } from "./errors.mjs";
 
-export const SOCKET_PATH =
-  process.env.ASPA_SOCKET || join(process.env.XDG_RUNTIME_DIR || join(homedir(), ".local", "share", "aspa-mcp"), "aspa-mcp.sock");
+function runtimeDir() {
+  if (process.env.XDG_RUNTIME_DIR) return process.env.XDG_RUNTIME_DIR;
+  const systemDefault = `/run/user/${process.getuid?.()}`;
+  return existsSync(systemDefault) ? systemDefault : join(homedir(), ".local", "share", "aspa-mcp");
+}
+
+export const SOCKET_PATH = process.env.ASPA_SOCKET || join(runtimeDir(), "aspa-mcp.sock");
 
 export function socketAlive(path = SOCKET_PATH) {
   return new Promise((resolve) => {

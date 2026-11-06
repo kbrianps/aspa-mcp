@@ -147,4 +147,4 @@ Nada é enviado, transferido ou concluído sem a sua aprovação, toda ação co
 
 ## Licença
 
-[MIT](LICENSE). Projeto independente, sem vínculo com a Aspa.
+[MIT](LICENSE). Projeto independente, sem vínculo com a Aspa. Mudanças por versão: [CHANGELOG](CHANGELOG.md). Falhas de segurança: [SECURITY.md](SECURITY.md). Contribuir: [CONTRIBUTING.md](CONTRIBUTING.md).

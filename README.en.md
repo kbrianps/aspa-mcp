@@ -147,4 +147,4 @@ Nothing is sent, transferred or concluded without your approval, every action fi
 
 ## License
 
-[MIT](LICENSE). Independent project, not affiliated with Aspa.
+[MIT](LICENSE). Independent project, not affiliated with Aspa. Changes per version: [CHANGELOG](CHANGELOG.md). Security issues: [SECURITY.md](SECURITY.md). Contributing: [CONTRIBUTING.md](CONTRIBUTING.md).

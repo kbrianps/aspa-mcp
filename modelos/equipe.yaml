@@ -11,7 +11,7 @@ empresa:
   nome: "Nome da empresa"
   descricao: >
     Uma ou duas frases sobre o que a empresa faz, para quem e qual é o principal
-    produto. O Claude usa isso como contexto para escrever os rascunhos.
+    produto. O assistente usa isso como contexto para escrever os rascunhos.
 
 rascunhos:
   idioma: pt-BR

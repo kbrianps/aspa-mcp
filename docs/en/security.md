@@ -32,7 +32,7 @@ Each entry also has: date and time, duration, user and computer, contact, status
   npm run auditoria -- 50 João # last 50 for the contact João
   ```
 
-- **View it through Claude**: *"Show what was sent through Aspa today"* or *"Which actions failed this week?"*.
+- **View it through the assistant**: *"Show what was sent through Aspa today"* or *"Which actions failed this week?"*.
 - **Configure it** (in `equipe.yaml` or `pessoal.yaml`):
 
   ```yaml

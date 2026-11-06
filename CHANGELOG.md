@@ -2,6 +2,31 @@
 
 All notable changes to aspa-mcp. Versions follow [Semantic Versioning](https://semver.org/); `npm run atualizar` installs the latest tagged version.
 
+## 0.7.0 - 2026-11-06
+
+### Added
+- pt-BR titles and accurate hints (read-only, destructive, idempotent, open world) on every tool.
+- Pagination for the conversation list (`limit`, `cursor`, `next_cursor`) and `has_more` for concluded conversations.
+- Recovery from crashed browser tabs; reads are retried once when the browser tab is lost.
+- Automatic detection of Google Chrome or Chromium; clear error when systemd is missing.
+- Headless DOM tests with an anonymized panel fixture.
+- `SECURITY.md`, `CONTRIBUTING.md`, issue and pull request templates.
+
+### Changed
+- Compact JSON output without duplicated captions, attachment triggers or URLs; shorter guidelines.
+- Stricter schemas for snooze date and time and for contact phone numbers.
+- PDF knowledge documents are cached until they change.
+- Instructions show the real install folder instead of a fixed path; paths with spaces or accents work.
+- The fictional example company is now an internet provider, and docs and templates speak of "the assistant" instead of a specific one.
+- Inherited section numbers removed from the docs.
+
+### Fixed
+- Freshly reopened conversations with only events can be opened.
+- Templates can be sent when the 24-hour window is closed and the panel shows "Envie uma mensagem modelo" with the "Escolher" button.
+- Right after a restart, actions wait for the full conversation list instead of reporting the conversation as not found.
+- The MCP server finds the background service even when the client passes a minimal environment without `XDG_RUNTIME_DIR`.
+- The hidden Chrome is recycled above 2.5 GB instead of 1.2 GB, which restarted it too often.
+
 ## 0.6.0 - 2026-11-06
 
 ### Added
@@ -9,7 +34,7 @@ All notable changes to aspa-mcp. Versions follow [Semantic Versioning](https://s
 - Startup summary of unread conversations, and watcher state saved across restarts so activity during downtime is not lost.
 - Audit entries for settings, knowledge documents, Slack ID, login and updates; monthly audit files.
 - Version mismatch between the MCP server and the background service shows up in the setup checklist.
-- Attachments older than 7 days are deleted automatically; the hidden Chrome restarts when idle and above 1.2 GB.
+- Attachments older than 7 days are deleted automatically; the hidden Chrome restarts when idle and above a memory limit.
 
 ### Changed
 - Reading keeps unread conversations unread by default (`keepUnread: false` marks them as read).

@@ -8,7 +8,7 @@
 | --- | --- |
 | `DAEMON_DOWN`: "O serviço do aspa-mcp não está rodando" | `systemctl --user restart aspa-mcp` |
 | `SESSION_EXPIRED` ou aviso "Sessão expirada" | Peça "faz o login no Aspa" ou rode `npm run smoke -- --login` |
-| `aspa` não aparece em `/mcp` | Refaça o [passo 4](instalacao.md#passo-4-conectar-ao-claude-code) e reinicie o Claude Code |
+| `aspa` não aparece em `/mcp` (Claude Code) ou em `codex mcp list` (Codex) | Refaça o [passo 4](instalacao.md#passo-4-conectar-ao-claude-code) ou veja [Outros clientes](outros-clientes.md) e reinicie o cliente |
 | `AMBIGUOUS`: "Mais de uma conversa corresponde" | Use o nome completo; se houver dois contatos com o mesmo nome, passe também o número da lista |
 | `WRONG_CONVERSATION` | A conversa aberta não era a pedida, e nada foi feito. Leia a conversa de novo e repita |
 | `DUPLICATE` | A mesma mensagem já foi enviada há menos de 2 minutos. Confira no Aspa antes de repetir |
@@ -21,9 +21,9 @@
 | Rascunho ignora o tom da equipe | Peça "mostra as diretrizes do Aspa" e confira `erros_de_configuracao` |
 | Notificações não chegam | Confira `dias`, `horario` e `canais` no `pessoal.yaml`; rode `npm run test-notify` |
 | Quero ver o que o serviço faz | `journalctl --user -u aspa-mcp -f` |
-| macOS | Em vez do passo 2, deixe um terminal com `npm run daemon`. Outro Chrome: `export ASPA_CHROME_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"` |
+| macOS (não testado) | O aspa-mcp é testado só no Linux com systemd. No macOS, em vez do passo 2, deixe um terminal com `npm run daemon`. Outro Chrome: `export ASPA_CHROME_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"` |
 | Sair da conta do Aspa | `systemctl --user stop aspa-mcp && rm -rf ~/.local/share/aspa-mcp/profile` |
-| Desinstalar | `systemctl --user disable --now aspa-mcp && claude mcp remove aspa --scope user` |
+| Desinstalar | `systemctl --user disable --now aspa-mcp`, depois `claude mcp remove aspa --scope user` ou `codex mcp remove aspa` |
 
 ```sh
 systemctl --user status aspa-mcp         # está rodando?

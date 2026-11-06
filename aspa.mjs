@@ -679,6 +679,10 @@ export const listConcluded = ({ query, pageNumber = 1 } = {}) =>
     const data = await page.evaluate(() => ({
       periodo: [...document.querySelectorAll("*")].find((e) => e.childElementCount === 0 && /Mostrando/.test(e.textContent))?.textContent.trim(),
       paginacao: document.querySelector(".mat-mdc-paginator-range-label")?.innerText.trim(),
+      has_more: (() => {
+        const next = document.querySelector(".mat-mdc-paginator-navigation-next");
+        return !!next && !next.disabled && next.getAttribute("aria-disabled") !== "true";
+      })(),
       conversas: [...document.querySelectorAll("tr.mat-mdc-row")].map((tr) => {
         const cells = [...tr.querySelectorAll("td")].map((td) => (window.__aspaText ? window.__aspaText(td) : td.innerText).trim());
         return { contato: cells[0]?.split("\n")[0], detalhe: cells[0]?.split("\n").slice(1).join(" ") || undefined, status: cells[1], usuario: cells[2], atualizado: cells[3] };

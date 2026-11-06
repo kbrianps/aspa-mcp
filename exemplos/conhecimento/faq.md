@@ -2,23 +2,23 @@
 
 > EXEMPLO FICTÍCIO. Substitua pelo conteúdo real da sua empresa antes de usar.
 
-## Por quanto tempo as gravações ficam guardadas?
+## A velocidade contratada chega no Wi‑Fi?
 
-30 dias no plano Essencial e 60 dias no plano Profissional. Depois disso são apagadas automaticamente e não podem ser recuperadas.
+No cabo, sim. No Wi‑Fi, a velocidade depende da distância do roteador, de paredes e do aparelho. Para medir, use um computador ligado no cabo e o teste de velocidade do app.
 
-## Posso baixar um trecho de gravação?
+## Posso trocar o nome e a senha do Wi‑Fi?
 
-Sim. No app: Câmeras → escolha a câmera → Gravações → selecione o dia e o horário → Baixar. Trechos de até 30 minutos por vez.
+Sim. No app: Minha conexão → Wi‑Fi → Alterar nome e senha. Os aparelhos conectados precisam entrar de novo com a senha nova.
 
-## Quantas pessoas podem acessar o app?
+## Quantos aparelhos posso conectar?
 
-Plano Essencial: até 3 usuários. Plano Profissional: usuários ilimitados. Novos usuários são convidados em Configurações → Usuários.
+Plano Essencial: até 15 aparelhos ao mesmo tempo com boa qualidade. Plano Profissional: até 40, com ponto extra de Wi‑Fi. Acima disso a conexão pode ficar lenta.
 
-## O alerta chegou atrasado. Por quê?
+## A internet fica lenta à noite. Por quê?
 
-Os alertas dependem da internet do local. Com conexão instável, o alerta pode atrasar até 2 minutos. Se o atraso for maior ou frequente, abra um atendimento.
+Muitos aparelhos usando ao mesmo tempo ou o roteador longe dos cômodos mais usados. Reiniciar o roteador costuma ajudar. Se a lentidão for frequente, abra um atendimento.
 
-## Como troco a senha?
+## Como troco a senha do app?
 
 Na tela de login, toque em "Esqueci minha senha" e use o e-mail cadastrado. O link vale por 30 minutos.
 

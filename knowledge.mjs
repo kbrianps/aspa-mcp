@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { extname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { normalizeText } from "./common.mjs";
 import { CODES, fail } from "./errors.mjs";
 
 const TEXT_EXTENSIONS = new Set([".md", ".markdown", ".txt", ".csv", ".json", ".yaml", ".yml"]);
@@ -17,22 +18,24 @@ function walk(folder) {
   return files;
 }
 
+const pdfCache = new Map();
+
 function textOf(path) {
   if (extname(path).toLowerCase() === ".pdf") {
+    const mtime = statSync(path).mtimeMs;
+    const cached = pdfCache.get(path);
+    if (cached?.mtime === mtime) return cached.text;
+    let text = null;
     try {
-      return execFileSync("pdftotext", ["-layout", path, "-"], { encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
-    } catch {
-      return null;
-    }
+      text = execFileSync("pdftotext", ["-layout", path, "-"], { encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
+    } catch {}
+    pdfCache.set(path, { mtime, text });
+    return text;
   }
   return readFileSync(path, "utf8");
 }
 
-const normalize = (text) =>
-  text
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase();
+const normalize = normalizeText;
 
 export function listDocuments(folder) {
   if (!existsSync(folder)) return [];

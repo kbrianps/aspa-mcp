@@ -1,4 +1,5 @@
 import { browser, sleep, watchPage } from "./browser.mjs";
+import { normalizeText } from "./common.mjs";
 import { CODES, fail } from "./errors.mjs";
 import { APP_ORIGIN, ICON_LINE, LIST_URL } from "./ui-map.mjs";
 
@@ -51,6 +52,16 @@ export async function ensureList(page, tab) {
   if ((await activeFilterChips(page)).length) await clearListFilters(page);
   const clicked = await selectTab(page, tab ?? "todos");
   if (tab && !clicked) fail(CODES.UI_CHANGED, `A aba "${tab}" não foi encontrada no painel. Outro filtro da lista pode estar ativo; limpe-o no painel.`);
+  await page
+    .waitForFunction(
+      () => {
+        const active = [...document.querySelectorAll("button")].find((b) => b.getAttribute("aria-pressed") === "true" && /\(\d+\)$/.test(b.innerText.trim()));
+        const expected = Number(active?.innerText.trim().match(/\((\d+)\)$/)?.[1]);
+        return !expected || document.querySelectorAll("button.list-otps-btn").length >= expected;
+      },
+      { timeout: 15000 },
+    )
+    .catch(() => null);
 }
 
 export async function selectTab(page, tab) {
@@ -74,6 +85,30 @@ export async function panelLoaded(page) {
   );
 }
 
+export function parseListInPage(iconPattern) {
+  const icon = new RegExp(iconPattern);
+  const textOf = (element) => (window.__aspaText ? window.__aspaText(element) : element.innerText);
+  const linesOf = (element) =>
+    textOf(element)
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line && !icon.test(line));
+  return [...document.querySelectorAll("button.list-otps-btn")].map((button, index) => {
+    const time = button.querySelector(".obtn-time")?.innerText.trim() ?? "";
+    const lines = linesOf(button);
+    const unread = !!button.querySelector("mat-icon.mat-warn")?.innerText.trim();
+    const captions = [...button.querySelectorAll(".btn-main-txt .mat-caption, .btn-main-txt small, .btn-main-txt span")]
+      .map((e) => linesOf(e).join(" "))
+      .filter(Boolean);
+    const agentCaption = button.querySelector(".btn-main-txt .mat-caption");
+    const hasAgentIcon = agentCaption?.querySelector("mat-icon")?.textContent.trim() === "support_agent";
+    const agentName = hasAgentIcon ? linesOf(agentCaption).join(" ").replace(/\s+/g, " ").trim() : "";
+    const details = lines.slice(1).filter((line) => line !== time);
+    const assigned = hasAgentIcon && !details.some((line) => /sem usu[aá]rio/i.test(line));
+    return { index, contact: lines[0] ?? "", time, unread, assigned, agent: assigned ? agentName || null : null, details, captions };
+  });
+}
+
 export async function readList(page) {
   await page
     .waitForFunction(
@@ -85,36 +120,10 @@ export async function readList(page) {
       { timeout: 3000 },
     )
     .catch(() => null);
-  return page.evaluate((iconPattern) => {
-    const icon = new RegExp(iconPattern);
-    const textOf = (element) => (window.__aspaText ? window.__aspaText(element) : element.innerText);
-    const linesOf = (element) =>
-      textOf(element)
-        .split("\n")
-        .map((line) => line.trim())
-        .filter((line) => line && !icon.test(line));
-    return [...document.querySelectorAll("button.list-otps-btn")].map((button, index) => {
-      const time = button.querySelector(".obtn-time")?.innerText.trim() ?? "";
-      const lines = linesOf(button);
-      const unread = !!button.querySelector("mat-icon.mat-warn")?.innerText.trim();
-      const captions = [...button.querySelectorAll(".btn-main-txt .mat-caption, .btn-main-txt small, .btn-main-txt span")]
-        .map((e) => linesOf(e).join(" "))
-        .filter(Boolean);
-      const agentCaption = button.querySelector(".btn-main-txt .mat-caption");
-      const hasAgentIcon = agentCaption?.querySelector("mat-icon")?.textContent.trim() === "support_agent";
-      const agentName = hasAgentIcon ? linesOf(agentCaption).join(" ").replace(/\s+/g, " ").trim() : "";
-      const details = lines.slice(1).filter((line) => line !== time);
-      const assigned = hasAgentIcon && !details.some((line) => /sem usu[aá]rio/i.test(line));
-      return { index, contact: lines[0] ?? "", time, unread, assigned, agent: assigned ? agentName || null : null, details, captions };
-    });
-  }, ICON_LINE.source);
+  return page.evaluate(parseListInPage, ICON_LINE.source);
 }
 
-export const normalizeText = (value) =>
-  String(value ?? "")
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase();
+export { normalizeText };
 
 export const comparable = (value) => normalizeText(value).replace(/\s+/g, " ").trim();
 
@@ -172,12 +181,16 @@ export async function openConversation(page, target, { write = false } = {}) {
     fail(CODES.INVALID_INPUT, "Informe o nome do contato (contact) em toda ação que muda uma conversa; o index sozinho não basta.");
   }
   await ensureList(page, null);
-  const match = pickConversation(await readList(page), target);
+  let match = pickConversation(await readList(page), target);
+  for (let i = 0; i < 5 && !match; i++) {
+    await sleep(2000);
+    match = pickConversation(await readList(page), target);
+  }
   if (!match) fail(CODES.NOT_FOUND, "Conversa não encontrada na lista de conversas abertas. Chame aspa_list_conversations primeiro.");
   const before = page.url();
   await page.evaluate((i) => document.querySelectorAll("button.list-otps-btn")[i].click(), match.index);
   await page.waitForFunction((previous) => location.href !== previous, { timeout: 5000 }, before).catch(() => null);
-  await page.waitForSelector(".att-msg", { timeout: 25000 });
+  await page.waitForSelector(".wrp-feed-item", { timeout: 25000 });
   await waitForStableFeed(page);
   let state = await currentConversation(page);
   for (let i = 0; i < 20 && !sameContact(state.header, match.contact); i++) {
@@ -221,76 +234,78 @@ export async function loadMore(page, times) {
   }
 }
 
-export async function readFeed(page) {
-  return page.evaluate((iconPattern) => {
-    const icon = new RegExp(iconPattern);
-    const textOf = (element) => (window.__aspaText ? window.__aspaText(element) : element.innerText);
-    const clean = (element) =>
-      textOf(element)
-        .split("\n")
-        .map((line) => line.trim())
-        .filter((line) => line && !icon.test(line))
-        .join("\n");
-    const header = document.querySelector(".header-main-txt");
-    const items = [...document.querySelectorAll(".wrp-feed-item")].map((item) => {
-      const message = item.querySelector(".att-msg");
-      if (!message) return { type: "event", text: clean(item) };
-      const status = message.querySelector("[aria-label^='Entregue'], [aria-description^='Entregue']");
-      const lines = clean(message).split("\n");
-      const time = /^\d{1,2}:\d{2}$/.test(lines.at(-1)) ? lines.pop() : undefined;
-      const bubble = message.querySelector(".att-message-bubble") ?? message;
-      const fromButtons = [...bubble.querySelectorAll(".btn-attachment")].map((e) => {
-        const background = getComputedStyle(e).backgroundImage.match(/url\("?(.*?)"?\)/)?.[1] ?? "";
-        const inner = e.querySelector("img, audio, video, source, a[href]");
-        const url = background || inner?.currentSrc || inner?.src || inner?.href || "";
-        const classes = e.className;
-        const kind = /image/.test(classes) ? "image" : /audio/.test(classes) ? "audio" : /video/.test(classes) ? "video" : "file";
-        return { kind, url, name: e.innerText.trim() || undefined };
-      });
-      const fromMedia = [...bubble.querySelectorAll(":is(img, audio, video, source):not(.btn-attachment *)")]
-        .filter((e) => !e.closest(".att-msg-sender-container"))
-        .map((e) => {
-          const tag = e.tagName.toLowerCase();
-          const kind = tag === "img" ? "image" : tag === "source" ? e.parentElement.tagName.toLowerCase() : tag;
-          return { kind, url: e.currentSrc || e.src || "", name: undefined };
-        });
-      const position = [...document.querySelectorAll(".wrp-feed-item")].indexOf(item);
-      const fromFileButtons = [...bubble.querySelectorAll("button.mediaMsgBtn")].map((e, n) => {
-        e.setAttribute("data-aspa-att", `f-${position}-${n}`);
-        return { kind: "file", url: "", trigger: `f-${position}-${n}`, name: e.querySelector("p")?.childNodes[0]?.textContent.trim() || undefined };
-      });
-      const fromAudioPlayers = [...bubble.querySelectorAll("mat-icon")]
-        .filter((e) => ["play_arrow", "pause"].includes(e.innerText.trim()) && e.closest(".bubble-last"))
-        .map((e, n) => {
-          e.setAttribute("data-aspa-att", `a-${position}-${n}`);
-          return { kind: "audio", url: "", trigger: `a-${position}-${n}`, name: undefined };
-        });
-      const attachments = [...fromButtons.filter((a) => a.url), ...fromMedia.filter((a) => a.url), ...fromFileButtons, ...fromAudioPlayers];
-      return {
-        type: "message",
-        direction: message.classList.contains("att-msg-sent") ? "outbound" : "inbound",
-        time,
-        text: lines.join("\n"),
-        status: status?.getAttribute("aria-label") || status?.getAttribute("aria-description") || undefined,
-        attachments: attachments.length ? attachments : undefined,
-      };
+export function parseFeedInPage(iconPattern) {
+  const icon = new RegExp(iconPattern);
+  const textOf = (element) => (window.__aspaText ? window.__aspaText(element) : element.innerText);
+  const clean = (element) =>
+    textOf(element)
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line && !icon.test(line))
+      .join("\n");
+  const header = document.querySelector(".header-main-txt");
+  const items = [...document.querySelectorAll(".wrp-feed-item")].map((item) => {
+    const message = item.querySelector(".att-msg");
+    if (!message) return { type: "event", text: clean(item) };
+    const status = message.querySelector("[aria-label^='Entregue'], [aria-description^='Entregue']");
+    const lines = clean(message).split("\n");
+    const time = /^\d{1,2}:\d{2}$/.test(lines.at(-1)) ? lines.pop() : undefined;
+    const bubble = message.querySelector(".att-message-bubble") ?? message;
+    const fromButtons = [...bubble.querySelectorAll(".btn-attachment")].map((e) => {
+      const background = getComputedStyle(e).backgroundImage.match(/url\("?(.*?)"?\)/)?.[1] ?? "";
+      const inner = e.querySelector("img, audio, video, source, a[href]");
+      const url = background || inner?.currentSrc || inner?.src || inner?.href || "";
+      const classes = e.className;
+      const kind = /image/.test(classes) ? "image" : /audio/.test(classes) ? "audio" : /video/.test(classes) ? "video" : "file";
+      return { kind, url, name: e.innerText.trim() || undefined };
     });
+    const fromMedia = [...bubble.querySelectorAll(":is(img, audio, video, source):not(.btn-attachment *)")]
+      .filter((e) => !e.closest(".att-msg-sender-container"))
+      .map((e) => {
+        const tag = e.tagName.toLowerCase();
+        const kind = tag === "img" ? "image" : tag === "source" ? e.parentElement.tagName.toLowerCase() : tag;
+        return { kind, url: e.currentSrc || e.src || "", name: undefined };
+      });
+    const position = [...document.querySelectorAll(".wrp-feed-item")].indexOf(item);
+    const fromFileButtons = [...bubble.querySelectorAll("button.mediaMsgBtn")].map((e, n) => {
+      e.setAttribute("data-aspa-att", `f-${position}-${n}`);
+      return { kind: "file", url: "", trigger: `f-${position}-${n}`, name: e.querySelector("p")?.childNodes[0]?.textContent.trim() || undefined };
+    });
+    const fromAudioPlayers = [...bubble.querySelectorAll("mat-icon")]
+      .filter((e) => ["play_arrow", "pause"].includes(e.innerText.trim()) && e.closest(".bubble-last"))
+      .map((e, n) => {
+        e.setAttribute("data-aspa-att", `a-${position}-${n}`);
+        return { kind: "audio", url: "", trigger: `a-${position}-${n}`, name: undefined };
+      });
+    const attachments = [...fromButtons.filter((a) => a.url), ...fromMedia.filter((a) => a.url), ...fromFileButtons, ...fromAudioPlayers];
     return {
-      contact: header?.querySelector("h2")?.innerText.trim() ?? "",
-      responseWindow: header?.querySelector(".mat-caption")?.innerText.trim() || undefined,
-      url: location.href,
-      items: (() => {
-        const elements = [...document.querySelectorAll(".wrp-feed-item")];
-        const kept = [];
-        items.forEach((item, position) => {
-          if (!(item.text || item.attachments)) return;
-          elements[position]?.setAttribute("data-aspa-item", String(kept.length));
-          kept.push({ index: kept.length, ...item });
-        });
-        return kept;
-      })(),
+      type: "message",
+      direction: message.classList.contains("att-msg-sent") ? "outbound" : "inbound",
+      time,
+      text: lines.join("\n"),
+      status: status?.getAttribute("aria-label") || status?.getAttribute("aria-description") || undefined,
+      attachments: attachments.length ? attachments : undefined,
     };
-  }, ICON_LINE.source);
+  });
+  return {
+    contact: header?.querySelector("h2")?.innerText.trim() ?? "",
+    responseWindow: header?.querySelector(".mat-caption")?.innerText.trim() || undefined,
+    url: location.href,
+    items: (() => {
+      const elements = [...document.querySelectorAll(".wrp-feed-item")];
+      const kept = [];
+      items.forEach((item, position) => {
+        if (!(item.text || item.attachments)) return;
+        elements[position]?.setAttribute("data-aspa-item", String(kept.length));
+        kept.push({ index: kept.length, ...item });
+      });
+      return kept;
+    })(),
+  };
+}
+
+export async function readFeed(page) {
+  return page.evaluate(parseFeedInPage, ICON_LINE.source);
 }
 
 export async function clickHeaderIcon(page, iconName) {
@@ -311,6 +326,20 @@ export async function clickHeaderIcon(page, iconName) {
 }
 
 export async function clickComposerPlus(page, item) {
+  if (item === "Mensagem Modelo") {
+    const chose = await page.evaluate(() => {
+      if (document.querySelector("textarea.cdk-textarea-autosize")) return false;
+      if (!/Envie uma mensagem modelo/i.test(document.body.innerText)) return false;
+      const button = [...document.querySelectorAll("button")].find((b) => b.innerText.trim() === "Escolher" && b.offsetParent && !b.closest(".cdk-overlay-container"));
+      if (!button) return false;
+      button.click();
+      return true;
+    });
+    if (chose) {
+      await sleep(1000);
+      return;
+    }
+  }
   const clicked = await page.evaluate(() => {
     const button = [...document.querySelectorAll("button")].find((b) => b.innerText.trim() === "loupe" && !b.closest(".cdk-overlay-container"));
     if (!button) return false;

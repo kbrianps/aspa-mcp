@@ -10,7 +10,7 @@ Tudo é configurável em arquivos simples, em `~/.config/aspa-mcp/`:
 | --- | --- | --- |
 | `equipe.yaml` | a equipe (igual para todos) | Sobre a empresa, tom, assinatura padrão, regras, exemplos, documentos, notificações padrão |
 | `pessoal.yaml` | cada atendente | Sua assinatura, seus horários e canais de aviso. **Tem prioridade** sobre o da equipe |
-| `conhecimento/` | a equipe | Documentos que ensinam o Claude sobre a empresa |
+| `conhecimento/` | a equipe | Documentos que ensinam o assistente sobre a empresa |
 
 **As mudanças valem na hora**, sem reiniciar nada.
 
@@ -21,7 +21,7 @@ O repositório traz duas pastas para você não começar do zero:
 | Pasta | O que é | Como usar |
 | --- | --- | --- |
 | [`modelos/`](../modelos/) | Arquivos **em branco**, comentados | O `npm run init-config` copia para `~/.config/aspa-mcp/`. É só preencher |
-| [`exemplos/`](../exemplos/) | Uma configuração **completa e preenchida** de uma empresa fictícia (Acme Monitoramento) | Abra para ver como fica um `equipe.yaml`, um `pessoal.yaml` e a pasta de conhecimento de verdade. Copie o **formato**, não o conteúdo |
+| [`exemplos/`](../exemplos/) | Uma configuração **completa e preenchida** de uma empresa fictícia (Acme Internet) | Abra para ver como fica um `equipe.yaml`, um `pessoal.yaml` e a pasta de conhecimento de verdade. Copie o **formato**, não o conteúdo |
 
 ```
 exemplos/
@@ -36,7 +36,7 @@ exemplos/
     │   ├── plano-essencial.md       preço, limites, o que inclui e o que não inclui
     │   └── plano-profissional.md
     └── procedimentos/
-        ├── camera-offline.md        perguntas, passos, quando escalar, o que não fazer
+        ├── internet-lenta.md        perguntas, passos, quando escalar, o que não fazer
         └── acesso-ao-app.md
 ```
 
@@ -45,9 +45,9 @@ Passo a passo sugerido:
 1. Rode `npm run init-config` (cria os arquivos em branco).
 2. Abra `exemplos/equipe.yaml` ao lado do seu `~/.config/aspa-mcp/equipe.yaml` e preencha o seu seguindo o formato.
 3. Para cada documento de `exemplos/conhecimento/` que fizer sentido, crie o equivalente real em `~/.config/aspa-mcp/conhecimento/`.
-4. Peça ao Claude: *"Mostra as diretrizes do Aspa"*. Se aparecer algum **aviso**, ainda há valor de modelo ou exemplo para trocar.
+4. Peça ao assistente: *"Mostra as diretrizes do Aspa"*. Se aparecer algum **aviso**, ainda há valor de modelo ou exemplo para trocar.
 
-> **Não copie os documentos de exemplo sem editar.** Eles têm preços, prazos e políticas inventados, marcados com "EXEMPLO FICTÍCIO". Se ficarem na sua pasta de conhecimento, as diretrizes avisam o Claude para não usar esses dados com clientes.
+> **Não copie os documentos de exemplo sem editar.** Eles têm preços, prazos e políticas inventados, marcados com "EXEMPLO FICTÍCIO". Se ficarem na sua pasta de conhecimento, as diretrizes avisam o assistente para não usar esses dados com clientes.
 
 ```sh
 nano ~/.config/aspa-mcp/equipe.yaml
@@ -56,7 +56,7 @@ nano ~/.config/aspa-mcp/pessoal.yaml
 
 > Como o repositório é público, **não** coloque estes arquivos nele. Compartilhe o `equipe.yaml` e os documentos com o time por um canal privado.
 
-### 5.1 Sobre a empresa e tom dos rascunhos
+### Sobre a empresa e tom dos rascunhos
 
 ```yaml
 empresa:
@@ -91,11 +91,11 @@ rascunhos:
 | `rascunhos.assinatura` | Assinatura no fim da mensagem (no `pessoal.yaml` cada um põe a sua) |
 | `rascunhos.saudacao_por_horario` | Começa com Bom dia, Boa tarde ou Boa noite conforme a hora |
 | `rascunhos.tamanho_maximo` | Limite de tamanho |
-| `rascunhos.sempre` / `rascunhos.nunca` | Regras que o Claude segue em todo rascunho |
+| `rascunhos.sempre` / `rascunhos.nunca` | Regras que o assistente segue em todo rascunho |
 | `rascunhos.quando_usar_template` | Quando preferir um template do WhatsApp |
-| `rascunhos.exemplos` | Respostas modelo para situações comuns (o Claude imita o estilo) |
+| `rascunhos.exemplos` | Respostas modelo para situações comuns (o assistente imita o estilo) |
 
-### 5.2 Documentos da empresa
+### Documentos da empresa
 
 Coloque arquivos em `~/.config/aspa-mcp/conhecimento/` (subpastas valem). Formatos: `.md`, `.txt`, `.pdf`, `.csv`, `.json`, `.yaml`.
 
@@ -111,9 +111,9 @@ conhecimento/
     └── sem-acesso.md
 ```
 
-Antes de afirmar qualquer fato num rascunho, o Claude busca nessa pasta. Se não encontrar, ele pergunta em vez de inventar. Para mudar a pasta: `conhecimento.pasta` no YAML.
+Antes de afirmar qualquer fato num rascunho, o assistente busca nessa pasta. Se não encontrar, ele pergunta em vez de inventar. Para mudar a pasta: `conhecimento.pasta` no YAML.
 
-### 5.3 Quando receber notificações
+### Quando receber notificações
 
 ```yaml
 notificacoes:
@@ -163,9 +163,9 @@ Exemplos prontos (cole no `pessoal.yaml`):
 | Tudo, menos um contato de testes | `contatos_ignorar: [Teste]` |
 | Só de um cliente importante | `abas: [todos]` e `contatos_incluir: [ACME]` |
 
-### 5.4 Conferir a configuração
+### Conferir a configuração
 
-Peça ao Claude:
+Peça ao assistente:
 
 ```text
 Mostra as diretrizes do Aspa e me diz se tem algum erro na configuração.

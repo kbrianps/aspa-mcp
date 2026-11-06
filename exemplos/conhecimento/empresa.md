@@ -1,16 +1,16 @@
-# Acme Monitoramento
+# Acme Internet
 
 > EXEMPLO FICTÍCIO. Substitua pelo conteúdo real da sua empresa antes de usar.
 
 ## O que fazemos
 
-Plataforma de monitoramento por câmeras para lojas, condomínios e empresas. O cliente acompanha as câmeras ao vivo, recebe alertas de eventos e consulta gravações.
+Provedor de internet por fibra óptica para residências e pequenas empresas. O cliente contrata o plano, recebe o roteador Wi‑Fi instalado e acompanha conexão, faturas e chamados pelo app.
 
 ## Para quem
 
-- Lojas de rua e de shopping (1 a 20 câmeras)
-- Condomínios residenciais (portaria e áreas comuns)
-- Pequenas e médias empresas (escritórios e galpões)
+- Residências (casas e apartamentos)
+- Condomínios residenciais (rede interna já cabeada)
+- Pequenas empresas (lojas, consultórios e escritórios)
 
 ## Canais de atendimento
 
@@ -18,7 +18,7 @@ Plataforma de monitoramento por câmeras para lojas, condomínios e empresas. O 
 | --- | --- | --- |
 | WhatsApp (suporte) | Dúvidas, problemas técnicos, financeiro | Seg a sex, 8h às 18h |
 | E-mail suporte@acme.example | Assuntos que precisam de anexo grande ou registro formal | Resposta em até 1 dia útil |
-| Plantão de emergência | Câmera offline em cliente com plano Profissional | 24h, todos os dias |
+| Plantão de emergência | Sem internet em cliente com plano Profissional | 24h, todos os dias |
 
 ## Prazos de atendimento (SLA)
 

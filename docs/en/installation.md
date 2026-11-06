@@ -67,7 +67,7 @@ npm run smoke -- --login
 2. Sign in with **your own** Aspa email and password.
 3. Once the panel loads, the window **closes by itself**.
 
-> You type your password only in that window. It never goes through Claude and is not saved in the project.
+> You type your password only in that window. It never goes through the assistant and is not saved in the project.
 
 ### Step 6: test
 

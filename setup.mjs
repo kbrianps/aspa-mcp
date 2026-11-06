@@ -1,6 +1,8 @@
 import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, extname, join, relative, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import { isMap, parseDocument } from "yaml";
+import { IN_ROOT, isPlaceholderCompany, isPlaceholderSignature } from "./common.mjs";
 import { CONFIG_DIR, loadConfig, PERSONAL_CONFIG, TEAM_CONFIG } from "./config.mjs";
 import { ENV_FILE, readEnvValues } from "./env-file.mjs";
 import { CODES, fail } from "./errors.mjs";
@@ -8,7 +10,7 @@ import { insideFolder, listDocuments, searchDocuments } from "./knowledge.mjs";
 import { transcriptionEnabled } from "./transcription.mjs";
 
 const FILES = { equipe: TEAM_CONFIG, pessoal: PERSONAL_CONFIG };
-const TEMPLATES = new URL("./modelos/", import.meta.url).pathname;
+const TEMPLATES = fileURLToPath(new URL("./modelos/", import.meta.url));
 const TEXT_EXTENSIONS = new Set([".md", ".txt", ".csv", ".json", ".yaml", ".yml"]);
 const EDITABLE_SECTIONS = /^(empresa|rascunhos|notificacoes)$/;
 
@@ -23,12 +25,17 @@ export function setEnvValue(key, value) {
   chmodSync(ENV_FILE, 0o600);
 }
 
-function ensureConfigFiles() {
-  mkdirSync(join(CONFIG_DIR, "conhecimento"), { recursive: true });
+export function ensureConfigFiles() {
+  const knowledge = join(CONFIG_DIR, "conhecimento");
+  mkdirSync(knowledge, { recursive: true });
   const created = [];
-  for (const [name, target] of Object.entries(FILES)) {
+  for (const [source, target] of [
+    [join(TEMPLATES, "equipe.yaml"), TEAM_CONFIG],
+    [join(TEMPLATES, "pessoal.yaml"), PERSONAL_CONFIG],
+    [join(TEMPLATES, "LEIA-ME-conhecimento.md"), join(knowledge, "LEIA-ME.md")],
+  ]) {
     if (!existsSync(target)) {
-      copyFileSync(join(TEMPLATES, `${name}.yaml`), target);
+      copyFileSync(source, target);
       created.push(target);
     }
   }
@@ -43,7 +50,7 @@ export function setupCheck({ service, session, health }) {
   const items = [];
   const add = (id, ok, label, next) => items.push({ id, status: ok ? "ok" : "pendente", item: label, proximo_passo: ok ? undefined : next });
 
-  add("servico", service.running, "Serviço em segundo plano rodando", "No terminal: cd ~/dev/aspa-mcp && npm run install-service (ou systemctl --user restart aspa-mcp).");
+  add("servico", service.running, "Serviço em segundo plano rodando", `No terminal: ${IN_ROOT} && npm run install-service (ou systemctl --user restart aspa-mcp).`);
   add(
     "login",
     session === "logged_in",
@@ -54,7 +61,7 @@ export function setupCheck({ service, session, health }) {
   add("erros", errors.length === 0, "Configuração sem erros", `Corrija: ${errors.join("; ")}`);
   add(
     "empresa",
-    !/^(nome da empresa|acme monitoramento)?$/i.test(String(config.empresa.nome ?? "").trim()) && !/Uma ou duas frases/i.test(String(config.empresa.descricao ?? "")),
+    !isPlaceholderCompany(config.empresa.nome) && !/Uma ou duas frases/i.test(String(config.empresa.descricao ?? "")),
     "Nome e descrição da empresa",
     'Pergunte ao usuário o nome da empresa e uma ou duas frases sobre o que ela faz; grave com aspa_update_settings (arquivo "equipe", campos empresa.nome e empresa.descricao).',
   );
@@ -66,7 +73,7 @@ export function setupCheck({ service, session, health }) {
   );
   add(
     "assinatura",
-    !!config.rascunhos.assinatura && !/seu nome|acme/i.test(config.rascunhos.assinatura),
+    !!config.rascunhos.assinatura && !isPlaceholderSignature(config.rascunhos.assinatura),
     "Assinatura pessoal",
     'Pergunte como o usuário assina as mensagens; grave em rascunhos.assinatura no arquivo "pessoal".',
   );
@@ -84,8 +91,8 @@ export function setupCheck({ service, session, health }) {
     slackReady,
     "Aviso no Slack (token e ID do usuário)",
     !env.ASPA_SLACK_USER_ID
-      ? "Peça o ID de membro do Slack (foto → Perfil → ⋮ → Copiar ID do membro, começa com U) e grave com aspa_configure_slack. Para o token, o usuário roda no terminal: cd ~/dev/aspa-mcp && npm run slack (cola o token quando pedir, sem mandar no chat)."
-      : "Falta o token: o usuário roda no terminal cd ~/dev/aspa-mcp && npm run slack e cola o token quando pedir (a digitação fica oculta e não passa pelo chat). O comando já testa o envio."
+      ? `Peça o ID de membro do Slack (foto → Perfil → ⋮ → Copiar ID do membro, começa com U) e grave com aspa_configure_slack. Para o token, o usuário roda no terminal: ${IN_ROOT} && npm run slack (cola o token quando pedir, sem mandar no chat).`
+      : `Falta o token: o usuário roda no terminal ${IN_ROOT} && npm run slack e cola o token quando pedir (a digitação fica oculta e não passa pelo chat). O comando já testa o envio.`
   );
   add(
     "notificacoes",
@@ -111,7 +118,7 @@ export function setupCheck({ service, session, health }) {
     id: "transcricao",
     status: transcriptionEnabled() ? "ok" : "opcional",
     item: "Transcrição local de áudios",
-    proximo_passo: transcriptionEnabled() ? undefined : "Opcional: no terminal, cd ~/dev/aspa-mcp && npm run setup-transcribe (cerca de 1 GB).",
+    proximo_passo: transcriptionEnabled() ? undefined : `Opcional: no terminal, ${IN_ROOT} && npm run setup-transcribe (cerca de 1 GB).`,
   });
 
   const pending = items.filter((i) => i.status === "pendente");

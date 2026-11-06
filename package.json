@@ -1,9 +1,18 @@
 {
   "name": "aspa-mcp",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "description": "Local MCP server and background service to read and act on Aspa Chat support conversations from AI assistants.",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "aspa",
+    "whatsapp",
+    "support",
+    "puppeteer"
+  ],
+  "author": "aspa-mcp contributors",
   "bin": {
     "aspa-mcp": "./index.mjs"
   },

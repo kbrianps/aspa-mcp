@@ -15,10 +15,10 @@ Open Claude Code in any folder and **ask in plain language**, the way you would 
 3. **Ask for a draft**
    > Prepare a draft reply. Don't send it yet.
 
-   Claude automatically checks the team's tone, rules and documents.
+   The assistant automatically checks the team's tone, rules and documents.
 4. **Review**: ask for changes if you want ("shorter", "explain step 2 better").
 5. **Send** (pick one way)
-   - Through Claude:
+   - Through the assistant:
      > Go ahead and send it.
 
      Claude Code shows a **permission prompt** with the exact text. Check it and approve.
@@ -33,9 +33,9 @@ Open Claude Code in any folder and **ask in plain language**, the way you would 
 
 - **Nothing is sent without your approval.** Sending, transferring, snoozing, closing, reopening and renaming always open a permission prompt.
 - **Never choose "always allow"** for these tools. Approve them one by one.
-- **WhatsApp 24-hour window**: after 24 hours without a message from the customer, you can only send **templates**. Claude warns you and suggests one.
+- **WhatsApp 24-hour window**: after 24 hours without a message from the customer, you can only send **templates**. The assistant warns you and suggests one.
 - **Reading does not mark as read:** an unread conversation stays unread after the assistant reads it (it takes a few extra seconds). To mark it as read, ask to "read it and mark it as read".
-- **A conversation with no agent assigned** shows "Assumir" (Take over) instead of the message box: ask Claude to "take over the conversation" before replying or transferring.
+- **A conversation with no agent assigned** shows "Assumir" (Take over) instead of the message box: ask the assistant to "take over the conversation" before replying or transferring.
 
 ---
 

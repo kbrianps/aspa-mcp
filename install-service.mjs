@@ -18,19 +18,25 @@ Description=Aspa Chat MCP daemon (headless Aspa session, watcher and notificatio
 After=graphical-session.target
 
 [Service]
-ExecStart=${process.execPath} ${join(root, "daemon.mjs")}
+ExecStart="${process.execPath}" "${join(root, "daemon.mjs")}"
 WorkingDirectory=${root}
 Restart=on-failure
 RestartSec=15
 TimeoutStopSec=30
-MemoryHigh=1500M
-MemoryMax=2500M
+MemoryHigh=3000M
+MemoryMax=4000M
 ${passthrough}
 
 [Install]
 WantedBy=default.target
 `;
 
+try {
+  execFileSync("systemctl", ["--user", "--version"], { stdio: "ignore" });
+} catch {
+  console.error("Este computador não tem systemd de usuário. O aspa-mcp é testado só no Linux com systemd; aqui, deixe um terminal aberto com npm run daemon.");
+  process.exit(1);
+}
 mkdirSync(unitDir, { recursive: true });
 writeFileSync(unitPath, unit);
 if (!existsSync(ENV_FILE)) {

@@ -10,9 +10,9 @@ O serviço avisa quando chega mensagem nas **suas conversas** (ou nas abas confi
 - no **Slack**, direto na sua conversa com o app (e no **celular** pelo app do Slack): precisa configurar;
 - no **celular sem Slack** (app ntfy): opcional.
 
-Os avisos mostram só o **nome do contato e o horário**, nunca o texto da mensagem. Quais canais, dias e horários: veja a [Quando receber notificações](configuracao.md#53-quando-receber-notificações).
+Os avisos mostram só o **nome do contato e o horário**, nunca o texto da mensagem. Quais canais, dias e horários: veja [Quando receber notificações](configuracao.md#quando-receber-notificações).
 
-### 6.1 Onde ficam os segredos
+### Onde ficam os segredos
 
 Tokens e links privados ficam no arquivo `~/.config/aspa-mcp/env` (criado no passo 2; só você consegue ler). Linhas começando com `#` estão desligadas.
 
@@ -29,7 +29,7 @@ cd ~/dev/aspa-mcp && npm run test-notify
 
 O `test-notify` manda um aviso de teste para os canais ligados e mostra quais são, por exemplo `channels: desktop, slack-dm`.
 
-### 6.2 Notificação no Ubuntu
+### Notificação no Ubuntu
 
 1. **Instale o comando de notificação** (já vem na maioria dos Ubuntu):
 
@@ -62,7 +62,7 @@ O `test-notify` manda um aviso de teste para os canais ligados e mostra quais s�
 
 7. **Para desligar** o aviso do Ubuntu, tire `desktop` de `notificacoes.canais` no `pessoal.yaml`.
 
-### 6.3 Notificação no Slack (direto para você)
+### Notificação no Slack (direto para você)
 
 O aviso chega numa conversa privada com o app **Aspa Chat** (no Slack, em **Apps** → **Aspa Chat**). Não precisa de canal.
 
@@ -141,7 +141,7 @@ O aviso chega numa conversa privada com o app **Aspa Chat** (no Slack, em **Apps
    | --- | --- |
    | Mensagem nova | 💬 **Nova mensagem no Aspa** · **João** · 14:23 · botão **Abrir no Aspa** |
    | Fora do horário | 🕘 **Mensagens recebidas fora do horário** · lista de contatos, enviada no início do expediente |
-   | Sessão expirada | ⚠️ **Sessão do Aspa expirada** · peça ao Claude "faz o login no Aspa" |
+   | Sessão expirada | ⚠️ **Sessão do Aspa expirada** · peça ao assistente "faz o login no Aspa" |
 
 #### Parte 3: receber no celular
 
@@ -160,7 +160,7 @@ O aviso chega numa conversa privada com o app **Aspa Chat** (no Slack, em **Apps
 | `slack-dm: not_allowed_token_type` | Outro tipo de token | Use o **Bot User OAuth Token** (`xoxb-`) |
 | `slack-dm: missing_scope` | App sem `chat:write` | Confira o manifest e reinstale |
 
-### 6.4 Celular sem Slack (app ntfy, opcional)
+### Celular sem Slack (app ntfy, opcional)
 
 1. Instale o app **ntfy** (Android ou iOS).
 2. Gere um tópico **longo e aleatório** só seu, por exemplo com `echo aspa-$(openssl rand -hex 12)` (quem souber o nome lê os avisos; não copie exemplos).

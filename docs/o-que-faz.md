@@ -25,7 +25,7 @@
 - Não transcreve na nuvem; sem a instalação opcional, não transcreve.
 - Não aplica jornadas, etiquetas nem assuntos do Aspa (a conta não tem nenhum configurado).
 - Não edita e-mail ou empresa do contato (a conta não tem permissão no painel) e não apaga contatos (o painel não tem essa opção).
-- Ações em massa: o painel só oferece transferir, adiar e concluir em lote; o Claude faz o mesmo conversa por conversa.
+- Ações em massa: o painel só oferece transferir, adiar e concluir em lote; o assistente faz o mesmo conversa por conversa.
 - Não muda o seu status de atendente nem grava áudio (para enviar áudio, use um arquivo com `aspa_send_attachment`).
 - Não assiste vídeos: só baixa o arquivo.
 - Não coloca o texto das mensagens nas notificações.

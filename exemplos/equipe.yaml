@@ -6,16 +6,16 @@
 # As mudanças valem na hora: não precisa reiniciar nada.
 
 empresa:
-  nome: "Acme Monitoramento"
+  nome: "Acme Internet"
   descricao: >
-    Plataforma de monitoramento por câmeras para lojas, condomínios e empresas.
-    O cliente acompanha as câmeras ao vivo pelo app e pelo painel web, recebe alertas
-    de eventos (movimento, pessoa, veículo) e consulta gravações dos últimos 30 dias.
+    Provedor de internet por fibra óptica para residências e pequenas empresas.
+    O cliente recebe o roteador Wi‑Fi instalado e acompanha pelo app a conexão,
+    o teste de velocidade, as faturas e os chamados de suporte.
 
 rascunhos:
   idioma: pt-BR
 
-  # Como escrever. Seja específico: o Claude segue isto ao pé da letra.
+  # Como escrever. Seja específico: o assistente segue isto ao pé da letra.
   tom: >
     Cordial, objetivo e sem jargão técnico. Trate o cliente por você.
     Frases curtas. Nada de "prezado" ou "atenciosamente".
@@ -43,15 +43,15 @@ rascunhos:
 
   quando_usar_template: "Quando a janela de 24h do WhatsApp estiver fechada ou para o primeiro contato ativo."
 
-  # Respostas modelo. O Claude imita o estilo (não copia palavra por palavra).
+  # Respostas modelo. O assistente imita o estilo (não copia palavra por palavra).
   exemplos:
-    - situacao: "Cliente diz que uma câmera está offline"
+    - situacao: "Cliente diz que está sem internet"
       resposta: |
         Boa tarde, Maria! Vou te ajudar com isso.
         Para eu verificar, me confirma:
-        1. Qual câmera está offline (nome que aparece no app)?
+        1. Está sem internet nenhuma ou só lenta?
         2. Desde quando?
-        Enquanto isso, vale conferir se o equipamento está ligado na tomada.
+        Enquanto isso, vale desligar o modem e o roteador da tomada por 2 minutos e ligar de novo.
         Equipe de Suporte Acme
 
     - situacao: "Cliente não consegue entrar no app"
@@ -61,10 +61,10 @@ rascunhos:
         Se o e-mail não chegar em 5 minutos, me avisa que eu verifico o cadastro por aqui.
         Equipe de Suporte Acme
 
-    - situacao: "Cliente pede gravação antiga"
+    - situacao: "Cliente quer trocar a senha do Wi‑Fi"
       resposta: |
-        Boa tarde, Carla! As gravações ficam disponíveis por 30 dias no seu plano.
-        Me passa a câmera, o dia e o horário aproximado que eu te mostro como baixar o trecho.
+        Boa tarde, Carla! Dá para trocar direto pelo app, em Minha conexão → Wi‑Fi → Alterar nome e senha.
+        Depois é só conectar os aparelhos de novo com a senha nova. Se travar em algum passo, me avisa.
         Equipe de Suporte Acme
 
     - situacao: "Cliente quer cancelar"

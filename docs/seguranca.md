@@ -34,7 +34,7 @@ Cada registro tem também: data e hora, duração, usuário e computador, contat
   npm run auditoria -- 50 João # últimas 50 do contato João
   ```
 
-- **Ver pelo Claude**: *"Mostra o que foi enviado hoje pelo Aspa"* ou *"Quais ações deram erro esta semana?"*.
+- **Ver pelo assistente**: *"Mostra o que foi enviado hoje pelo Aspa"* ou *"Quais ações deram erro esta semana?"*.
 - **Configurar** (no `equipe.yaml` ou `pessoal.yaml`):
 
   ```yaml

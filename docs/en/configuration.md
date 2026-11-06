@@ -8,7 +8,7 @@ Everything is configured in plain files under `~/.config/aspa-mcp/`:
 | --- | --- | --- |
 | `equipe.yaml` | the team (same for everyone) | About the company, tone, default signature, rules, examples, documents, default notifications |
 | `pessoal.yaml` | each agent | Your signature, your hours and your notification channels. **Takes precedence** over the team file |
-| `conhecimento/` | the team | Documents that teach Claude about the company |
+| `conhecimento/` | the team | Documents that teach the assistant about the company |
 
 **Changes take effect immediately**, with no restart needed.
 
@@ -19,7 +19,7 @@ The repository includes two folders so you don't have to start from scratch:
 | Folder | What it is | How to use it |
 | --- | --- | --- |
 | [`modelos/`](../../modelos/) | **Blank**, commented files | `npm run init-config` copies them to `~/.config/aspa-mcp/`. You just fill them in |
-| [`exemplos/`](../../exemplos/) | A **complete, filled-in** configuration for a fictional company (Acme Monitoramento) | Open it to see what a real `equipe.yaml`, `pessoal.yaml` and knowledge folder look like. Copy the **format**, not the content |
+| [`exemplos/`](../../exemplos/) | A **complete, filled-in** configuration for a fictional company (Acme Internet) | Open it to see what a real `equipe.yaml`, `pessoal.yaml` and knowledge folder look like. Copy the **format**, not the content |
 
 ```
 exemplos/
@@ -34,7 +34,7 @@ exemplos/
     │   ├── plano-essencial.md       price, limits, what is and is not included
     │   └── plano-profissional.md
     └── procedimentos/
-        ├── camera-offline.md        questions, steps, when to escalate, what not to do
+        ├── internet-lenta.md        questions, steps, when to escalate, what not to do
         └── acesso-ao-app.md
 ```
 
@@ -43,9 +43,9 @@ Suggested steps:
 1. Run `npm run init-config` (creates the blank files).
 2. Open `exemplos/equipe.yaml` next to your `~/.config/aspa-mcp/equipe.yaml` and fill yours in following the same format.
 3. For each document in `exemplos/conhecimento/` that makes sense for you, create the real equivalent in `~/.config/aspa-mcp/conhecimento/`.
-4. Ask Claude: *"Show the Aspa guidelines"*. If any **warning** shows up, there is still a template or example value to replace.
+4. Ask the assistant: *"Show the Aspa guidelines"*. If any **warning** shows up, there is still a template or example value to replace.
 
-> **Do not copy the example documents without editing them.** They contain made-up prices, deadlines and policies, marked with "EXEMPLO FICTÍCIO" (fictional example). If they stay in your knowledge folder, the guidelines tell Claude not to use that data with customers.
+> **Do not copy the example documents without editing them.** They contain made-up prices, deadlines and policies, marked with "EXEMPLO FICTÍCIO" (fictional example). If they stay in your knowledge folder, the guidelines tell the assistant not to use that data with customers.
 
 ```sh
 nano ~/.config/aspa-mcp/equipe.yaml
@@ -54,7 +54,7 @@ nano ~/.config/aspa-mcp/pessoal.yaml
 
 > Since the repository is public, do **not** put these files in it. Share `equipe.yaml` and the documents with the team through a private channel.
 
-### 5.1 About the company and the tone of drafts
+### About the company and the tone of drafts
 
 ```yaml
 empresa:
@@ -89,11 +89,11 @@ rascunhos:
 | `rascunhos.assinatura` | Signature at the end of the message (in `pessoal.yaml` each person sets their own) |
 | `rascunhos.saudacao_por_horario` | Starts with Bom dia, Boa tarde or Boa noite (good morning, afternoon or evening) depending on the time |
 | `rascunhos.tamanho_maximo` | Length limit |
-| `rascunhos.sempre` / `rascunhos.nunca` | Rules Claude follows in every draft (always / never) |
+| `rascunhos.sempre` / `rascunhos.nunca` | Rules The assistant follows in every draft (always / never) |
 | `rascunhos.quando_usar_template` | When to prefer a WhatsApp template |
-| `rascunhos.exemplos` | Sample replies for common situations (Claude imitates the style) |
+| `rascunhos.exemplos` | Sample replies for common situations (The assistant imitates the style) |
 
-### 5.2 Company documents
+### Company documents
 
 Put files in `~/.config/aspa-mcp/conhecimento/` (subfolders work). Formats: `.md`, `.txt`, `.pdf`, `.csv`, `.json`, `.yaml`.
 
@@ -109,9 +109,9 @@ conhecimento/
     └── sem-acesso.md
 ```
 
-Before stating any fact in a draft, Claude searches this folder. If it finds nothing, it asks instead of making something up. To change the folder: `conhecimento.pasta` in the YAML.
+Before stating any fact in a draft, The assistant searches this folder. If it finds nothing, it asks instead of making something up. To change the folder: `conhecimento.pasta` in the YAML.
 
-### 5.3 When to receive notifications
+### When to receive notifications
 
 ```yaml
 notificacoes:
@@ -161,9 +161,9 @@ Ready-made examples (paste into `pessoal.yaml`):
 | Everything except a test contact | `contatos_ignorar: [Teste]` |
 | Only one important customer | `abas: [todos]` and `contatos_incluir: [ACME]` |
 
-### 5.4 Check the configuration
+### Check the configuration
 
-Ask Claude:
+Ask the assistant:
 
 ```text
 Show the Aspa guidelines and tell me whether there is any error in the configuration.

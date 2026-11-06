@@ -41,6 +41,7 @@ const methods = {
 };
 
 const ALLOWED_DURING_REVIEW = new Set(["openDraft", "health"]);
+const BROWSER_GONE = /Target closed|Session closed|detached|Protocol error|Execution context was destroyed|crashed/i;
 const TOOL_KIND = Object.fromEntries(TOOLS.map((tool) => [tool.method, tool.kind]));
 const DUPLICATE_WINDOW_MS = 2 * 60 * 1000;
 const SEND_METHODS = new Set(["sendMessage", "replyToMessage", "sendTemplate", "sendAttachment"]);
@@ -87,7 +88,13 @@ async function dispatch(method, args, signal) {
   const startedAt = Date.now();
   let result;
   try {
-    result = await aspa.withRequest(signal, () => fn(args));
+    try {
+      result = await aspa.withRequest(signal, () => fn(args));
+    } catch (error) {
+      if (TOOL_KIND[method] !== "read" || !BROWSER_GONE.test(error.message) || signal.aborted) throw error;
+      console.error(`[call] ${method}: browser tab was lost, retrying once`);
+      result = await aspa.withRequest(signal, () => fn(args));
+    }
   } catch (error) {
     if (duplicateKey && error.code !== CODES.NOT_VERIFIED) recentSends.delete(duplicateKey);
     if (WRITE_METHODS.has(method) && error.code !== CODES.CANCELLED) {
@@ -261,7 +268,7 @@ if (WATCH) {
 }
 
 const ATTACHMENT_RETENTION_DAYS = Number(process.env.ASPA_ATTACHMENT_RETENTION_DAYS ?? 7);
-const CHROME_MEMORY_LIMIT_MB = Number(process.env.ASPA_CHROME_MEMORY_LIMIT_MB ?? 1200);
+const CHROME_MEMORY_LIMIT_MB = Number(process.env.ASPA_CHROME_MEMORY_LIMIT_MB ?? 2500);
 const housekeeping = () => {
   try {
     const removed = aspa.pruneAttachments(ATTACHMENT_RETENTION_DAYS);

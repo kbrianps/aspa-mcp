@@ -2,7 +2,7 @@
 
 > EXEMPLO FICTÍCIO. Substitua pelo conteúdo real da sua empresa antes de usar.
 
-Frases aprovadas pela equipe. O Claude usa como referência de estilo e conteúdo.
+Frases aprovadas pela equipe. O assistente usa como referência de estilo e conteúdo.
 
 ## Abertura
 
@@ -10,7 +10,7 @@ Frases aprovadas pela equipe. O Claude usa como referência de estilo e conteúd
 
 ## Pedir informação
 
-- "Para eu verificar, me confirma o nome da câmera que aparece no app e desde quando está assim?"
+- "Para eu verificar, me confirma o endereço da instalação e desde quando a internet está assim?"
 - "Consegue me mandar um print da tela com a mensagem de erro?"
 
 ## Encaminhar para outro time

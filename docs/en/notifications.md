@@ -8,9 +8,9 @@ The service notifies you when a message arrives in **your conversations** (or in
 - on **Slack**, directly in your conversation with the app (and on your **phone** through the Slack app): needs setup;
 - on a **phone without Slack** (ntfy app): optional.
 
-Notifications show only the **contact name and the time**, never the message text. For channels, days and hours, see [When to receive notifications](configuration.md#53-when-to-receive-notifications).
+Notifications show only the **contact name and the time**, never the message text. For channels, days and hours, see [When to receive notifications](configuration.md#when-to-receive-notifications).
 
-### 6.1 Where the secrets live
+### Where the secrets live
 
 Tokens and private links are kept in the `~/.config/aspa-mcp/env` file (created in step 2; only you can read it). Lines starting with `#` are disabled.
 
@@ -27,7 +27,7 @@ cd ~/dev/aspa-mcp && npm run test-notify
 
 `test-notify` sends a test notification to the enabled channels and shows which ones they are, for example `channels: desktop, slack-dm`.
 
-### 6.2 Ubuntu notifications
+### Ubuntu notifications
 
 1. **Install the notification command** (it already comes with most Ubuntu installs):
 
@@ -60,7 +60,7 @@ cd ~/dev/aspa-mcp && npm run test-notify
 
 7. **To turn off** Ubuntu notifications, remove `desktop` from `notificacoes.canais` in `pessoal.yaml`.
 
-### 6.3 Slack notifications (sent directly to you)
+### Slack notifications (sent directly to you)
 
 The notification arrives in a private conversation with the **Aspa Chat** app (in Slack, under **Apps** → **Aspa Chat**). No channel is needed.
 
@@ -139,7 +139,7 @@ The notification arrives in a private conversation with the **Aspa Chat** app (i
    | --- | --- |
    | New message | 💬 **Nova mensagem no Aspa** (New message in Aspa) · **João** · 14:23 · **Abrir no Aspa** (Open in Aspa) button |
    | Outside working hours | 🕘 **Mensagens recebidas fora do horário** (Messages received outside working hours) · list of contacts, sent when the workday starts |
-   | Session expired | ⚠️ **Sessão do Aspa expirada** (Aspa session expired) · ask Claude to "sign in to Aspa" |
+   | Session expired | ⚠️ **Sessão do Aspa expirada** (Aspa session expired) · ask the assistant to "sign in to Aspa" |
 
 #### Part 3: get them on your phone
 
@@ -158,7 +158,7 @@ The notification arrives in a private conversation with the **Aspa Chat** app (i
 | `slack-dm: not_allowed_token_type` | Different token type | Use the **Bot User OAuth Token** (`xoxb-`) |
 | `slack-dm: missing_scope` | App without `chat:write` | Check the manifest and reinstall |
 
-### 6.4 Phone without Slack (ntfy app, optional)
+### Phone without Slack (ntfy app, optional)
 
 1. Install the **ntfy** app (Android or iOS).
 2. Generate a **long, random** topic of your own, for example with `echo aspa-$(openssl rand -hex 12)` (anyone who knows the name can read the notifications; do not copy examples).
