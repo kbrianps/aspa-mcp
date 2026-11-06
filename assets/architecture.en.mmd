@@ -1,0 +1,22 @@
+%%{init: {"theme": "base", "fontFamily": "Inter", "themeVariables": {"primaryColor": "#6200E9", "primaryTextColor": "#FFFFFF", "primaryBorderColor": "#4A00B0", "lineColor": "#6200E9", "clusterBkg": "#F7F2FF", "clusterBorder": "#6200E9", "edgeLabelBackground": "#EFE5FF", "textColor": "#2B0066", "titleColor": "#2B0066", "fontFamily": "Inter"}}}%%
+flowchart LR
+    subgraph PC["💻 Support agent's computer"]
+        direction LR
+        CC["🤖 AI assistant<br/>Claude Code, Codex…"] -->|"MCP (stdio)"| MCP["aspa-mcp<br/>MCP server"]
+        MCP -->|"local socket"| D["aspa-mcp<br/>background service"]
+        MCP -.->|"reads"| CFG[("📁 equipe.yaml (team)<br/>pessoal.yaml (personal)<br/>conhecimento/ (docs)")]
+        D --> CH["🌐 Headless Chrome<br/>own profile"]
+        D -.-> W["🎙️ Local Whisper<br/>(optional)"]
+    end
+    CH <-->|"official panel"| ASPA["Aspa Chat<br/>app.aspa.chat"]
+    ASPA <-->|"WhatsApp"| CLI["👥 Customers"]
+    D -->|"alerts"| UB["🖥️ Ubuntu"]
+    D -->|"alerts"| SL["💬 Slack and phone"]
+
+    linkStyle default stroke:#6200E9,color:#2B0066
+    classDef default fill:#6200E9,stroke:#4A00B0,color:#FFFFFF
+    classDef ext fill:#EFE5FF,stroke:#6200E9,color:#2B0066
+    classDef store fill:#FFFFFF,stroke:#6200E9,color:#2B0066
+    class ASPA,CLI,UB,SL ext
+    class CFG store
+    style PC fill:#F7F2FF,stroke:#6200E9,stroke-width:2px,color:#2B0066

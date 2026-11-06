@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="320" viewBox="0 0 1280 320" role="img" aria-label="aspa-mcp: AI assistants + Aspa Chat for support teams">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6200E9"/>
+      <stop offset="1" stop-color="#3B0091"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.85" cy="0.15" r="0.6">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1280" height="320" rx="24" fill="url(#bg)"/>
+  <rect width="1280" height="320" rx="24" fill="url(#glow)"/>
+  <g fill="none" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="2">
+    <circle cx="1130" cy="250" r="140"/>
+    <circle cx="1130" cy="250" r="200"/>
+    <circle cx="1130" cy="250" r="260"/>
+  </g>
+  <g transform="translate(96 92)">
+    <rect width="136" height="136" rx="32" fill="#FFFFFF" fill-opacity="0.12" stroke="#FFFFFF" stroke-opacity="0.35"/>
+    <path d="M34 44h68a12 12 0 0 1 12 12v32a12 12 0 0 1-12 12H62l-18 16v-16H34a12 12 0 0 1-12-12V56a12 12 0 0 1 12-12z" fill="#FFFFFF"/>
+    <circle cx="52" cy="72" r="6" fill="#6200E9"/>
+    <circle cx="68" cy="72" r="6" fill="#6200E9"/>
+    <circle cx="84" cy="72" r="6" fill="#6200E9"/>
+  </g>
+  <g font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" fill="#FFFFFF">
+    <text x="276" y="150" font-size="72" font-weight="700" letter-spacing="-1">aspa-mcp</text>
+    <text x="278" y="200" font-size="28" font-weight="400" fill-opacity="0.9">AI assistants + Aspa Chat for support teams</text>
+    <text x="278" y="244" font-size="20" font-weight="500" fill-opacity="0.7">Read · Draft · Reply with approval · Notify · Transcribe</text>
+  </g>
+</svg>

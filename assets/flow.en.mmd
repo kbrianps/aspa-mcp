@@ -1,0 +1,20 @@
+%%{init: {"theme": "base", "fontFamily": "Inter", "themeVariables": {"primaryColor": "#6200E9", "primaryTextColor": "#FFFFFF", "primaryBorderColor": "#4A00B0", "lineColor": "#6200E9", "actorBkg": "#6200E9", "actorTextColor": "#FFFFFF", "actorBorder": "#4A00B0", "signalColor": "#3B0091", "signalTextColor": "#2B0066", "noteBkgColor": "#EFE5FF", "noteTextColor": "#2B0066", "noteBorderColor": "#6200E9", "activationBkgColor": "#EFE5FF", "sequenceNumberColor": "#FFFFFF", "fontFamily": "Inter"}}}%%
+sequenceDiagram
+    autonumber
+    participant C as Customer
+    participant A as Aspa Chat
+    participant S as aspa-mcp
+    participant N as Slack / Ubuntu
+    participant V as You + assistant
+    rect rgb(247, 242, 255)
+    C->>A: WhatsApp message
+    S->>A: Watches the "Meus" (Mine) tab
+    S->>N: "Aspa: João, new message at 14:23"
+    V->>S: "Read João's conversation and draft a reply"
+    S->>A: Reads history, attachments and audio
+    S-->>V: Conversation + guidelines + documents
+    Note over V: You review and edit the draft
+    V->>S: Approves sending (or sends in the review window)
+    S->>A: Sends and checks the panel
+    A->>C: Reply
+    end
