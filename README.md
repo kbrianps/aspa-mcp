@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/banner.svg" alt="aspa-mcp: Claude Code + Aspa Chat para equipes de suporte" width="100%">
+  <img src="assets/banner.svg" alt="aspa-mcp: assistentes de IA + Aspa Chat para equipes de suporte" width="100%">
 </p>
 
 <p align="center">
@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <b>Atenda pelo Aspa Chat conversando com o Claude.</b><br>
+  <b>Atenda pelo Aspa Chat conversando com o seu assistente de IA (Claude Code, Codex e outros).</b><br>
   Ele lê as conversas, entende áudios e anexos, escreve no tom da sua equipe<br>
   e só envia, transfere ou conclui depois da sua aprovação.
 </p>
@@ -25,7 +25,7 @@
 | --- | --- |
 | 💬 **Lê tudo** | Conversas, histórico, imagens, PDFs e áudios (com transcrição local opcional). |
 | ✍️ **Escreve no seu tom** | Tom, assinatura, regras e exemplos da equipe, mais documentos da empresa como fonte. |
-| ✅ **Você aprova** | Nada é enviado, transferido ou concluído sem a sua confirmação no Claude Code. |
+| ✅ **Você aprova** | Nada é enviado, transferido ou concluído sem a sua confirmação, no assistente ou na janela de revisão do Aspa. |
 | 🔔 **Avisa na hora certa** | Ubuntu, Slack e celular, só das suas conversas e só no seu horário. |
 | 🔒 **Fica no seu computador** | Sessão, anexos, documentos e áudios não saem da sua máquina. |
 
@@ -52,12 +52,12 @@
 ## Como funciona
 
 <p align="center">
-  <img src="assets/arquitetura.png" alt="Arquitetura do aspa-mcp: Claude Code, servidor MCP, serviço em segundo plano, Chrome invisível, Aspa Chat, clientes e notificações" width="100%">
+  <img src="assets/arquitetura.png" alt="Arquitetura do aspa-mcp: assistente de IA (Claude Code, Codex), servidor MCP, serviço em segundo plano, Chrome invisível, Aspa Chat, clientes e notificações" width="100%">
 </p>
 
 <sub>Fonte editável do diagrama: <a href="assets/arquitetura.mmd"><code>assets/arquitetura.mmd</code></a></sub>
 
-O **serviço em segundo plano** mantém um Chrome invisível logado no Aspa, executa uma ação por vez no painel e vigia mensagens novas. O **servidor MCP** é a ponte com o Claude Code e também entrega as diretrizes e os documentos da equipe.
+O **serviço em segundo plano** mantém um Chrome invisível logado no Aspa, executa uma ação por vez no painel e vigia mensagens novas. O **servidor MCP** é a ponte com o assistente (Claude Code, Codex ou outro cliente de MCP) e também entrega as diretrizes e os documentos da equipe.
 
 ### Um atendimento do começo ao fim
 

@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="320" viewBox="0 0 1280 320" role="img" aria-label="aspa-mcp: Claude Code + Aspa Chat para equipes de suporte">
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="320" viewBox="0 0 1280 320" role="img" aria-label="aspa-mcp: assistentes de IA + Aspa Chat para equipes de suporte">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#6200E9"/>
@@ -25,7 +25,7 @@
   </g>
   <g font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" fill="#FFFFFF">
     <text x="276" y="150" font-size="72" font-weight="700" letter-spacing="-1">aspa-mcp</text>
-    <text x="278" y="200" font-size="28" font-weight="400" fill-opacity="0.9">Claude Code + Aspa Chat para equipes de suporte</text>
+    <text x="278" y="200" font-size="28" font-weight="400" fill-opacity="0.9">Assistentes de IA + Aspa Chat para equipes de suporte</text>
     <text x="278" y="244" font-size="20" font-weight="500" fill-opacity="0.7">Ler · Rascunhar · Responder com aprovação · Notificar · Transcrever</text>
   </g>
 </svg>

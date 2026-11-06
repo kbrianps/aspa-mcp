@@ -1,8 +1,8 @@
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#6200E9", "primaryTextColor": "#FFFFFF", "primaryBorderColor": "#4A00B0", "lineColor": "#6200E9", "clusterBkg": "#F7F2FF", "clusterBorder": "#6200E9", "edgeLabelBackground": "#EFE5FF", "textColor": "#2B0066", "titleColor": "#2B0066", "fontFamily": "Inter, Segoe UI, Helvetica, Arial, sans-serif"}}}%%
+%%{init: {"theme": "base", "fontFamily": "Inter", "themeVariables": {"primaryColor": "#6200E9", "primaryTextColor": "#FFFFFF", "primaryBorderColor": "#4A00B0", "lineColor": "#6200E9", "clusterBkg": "#F7F2FF", "clusterBorder": "#6200E9", "edgeLabelBackground": "#EFE5FF", "textColor": "#2B0066", "titleColor": "#2B0066", "fontFamily": "Inter"}}}%%
 flowchart LR
     subgraph PC["💻 Computador do atendente"]
         direction LR
-        CC["🤖 Claude Code"] -->|"MCP (stdio)"| MCP["aspa-mcp<br/>servidor MCP"]
+        CC["🤖 Assistente de IA<br/>Claude Code, Codex…"] -->|"MCP (stdio)"| MCP["aspa-mcp<br/>servidor MCP"]
         MCP -->|"socket local"| D["aspa-mcp<br/>serviço em segundo plano"]
         MCP -.->|"lê"| CFG[("📁 equipe.yaml<br/>pessoal.yaml<br/>conhecimento/")]
         D --> CH["🌐 Chrome invisível<br/>perfil próprio"]

@@ -1,11 +1,11 @@
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#6200E9", "primaryTextColor": "#FFFFFF", "primaryBorderColor": "#4A00B0", "lineColor": "#6200E9", "actorBkg": "#6200E9", "actorTextColor": "#FFFFFF", "actorBorder": "#4A00B0", "signalColor": "#3B0091", "signalTextColor": "#2B0066", "noteBkgColor": "#EFE5FF", "noteTextColor": "#2B0066", "noteBorderColor": "#6200E9", "activationBkgColor": "#EFE5FF", "sequenceNumberColor": "#FFFFFF", "fontFamily": "Inter, Segoe UI, Helvetica, Arial, sans-serif"}}}%%
+%%{init: {"theme": "base", "fontFamily": "Inter", "themeVariables": {"primaryColor": "#6200E9", "primaryTextColor": "#FFFFFF", "primaryBorderColor": "#4A00B0", "lineColor": "#6200E9", "actorBkg": "#6200E9", "actorTextColor": "#FFFFFF", "actorBorder": "#4A00B0", "signalColor": "#3B0091", "signalTextColor": "#2B0066", "noteBkgColor": "#EFE5FF", "noteTextColor": "#2B0066", "noteBorderColor": "#6200E9", "activationBkgColor": "#EFE5FF", "sequenceNumberColor": "#FFFFFF", "fontFamily": "Inter"}}}%%
 sequenceDiagram
     autonumber
     participant C as Cliente
     participant A as Aspa Chat
     participant S as aspa-mcp
     participant N as Slack / Ubuntu
-    participant V as Você + Claude
+    participant V as Você + assistente
     rect rgb(247, 242, 255)
     C->>A: Mensagem no WhatsApp
     S->>A: Vigia a aba "Meus"
@@ -14,7 +14,7 @@ sequenceDiagram
     S->>A: Lê histórico, anexos e áudios
     S-->>V: Conversa + diretrizes + documentos
     Note over V: Você revisa e ajusta o rascunho
-    V->>S: "Pode enviar" (aprovação)
+    V->>S: Aprova o envio (ou envia na janela de revisão)
     S->>A: Envia e confere no painel
     A->>C: Resposta
     end
