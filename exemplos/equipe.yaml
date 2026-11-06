@@ -1,35 +1,78 @@
-# Configuração da EQUIPE.
-# Pode ser igual para todos os atendentes (compartilhe o arquivo por um canal privado).
+# EXEMPLO de configuração da EQUIPE preenchida, de uma empresa FICTÍCIA.
+# Use como referência de formato. O npm run init-config copia o modelo em branco
+# (modelos/equipe.yaml), não este arquivo.
+#
 # O pessoal.yaml de cada pessoa tem prioridade sobre este arquivo.
 # As mudanças valem na hora: não precisa reiniciar nada.
 
 empresa:
-  nome: "Nome da empresa"
+  nome: "Acme Monitoramento"
   descricao: >
-    Uma ou duas frases sobre o que a empresa faz, para quem e qual é o principal
-    produto. O Claude usa isso como contexto para escrever os rascunhos.
+    Plataforma de monitoramento por câmeras para lojas, condomínios e empresas.
+    O cliente acompanha as câmeras ao vivo pelo app e pelo painel web, recebe alertas
+    de eventos (movimento, pessoa, veículo) e consulta gravações dos últimos 30 dias.
 
 rascunhos:
   idioma: pt-BR
-  tom: "Cordial, objetivo e sem jargão técnico. Trate o cliente por você."
-  assinatura: "Equipe de Suporte"
+
+  # Como escrever. Seja específico: o Claude segue isto ao pé da letra.
+  tom: >
+    Cordial, objetivo e sem jargão técnico. Trate o cliente por você.
+    Frases curtas. Nada de "prezado" ou "atenciosamente".
+
+  # Assinatura padrão da equipe. Cada pessoa troca pela sua no pessoal.yaml.
+  assinatura: "Equipe de Suporte Acme"
+
   saudacao_por_horario: true        # começa com Bom dia / Boa tarde / Boa noite
   tamanho_maximo: "até 6 linhas"
+
+  # Regras que valem para TODO rascunho.
   sempre:
     - "Confirme o entendimento do problema antes de propor a solução."
     - "Se faltar informação, faça no máximo duas perguntas objetivas."
-    - "Use os documentos de conhecimento para qualquer fato sobre produtos, prazos e preços."
+    - "Use os documentos da pasta conhecimento para qualquer fato sobre planos, prazos e preços."
+    - "Quando passar um passo a passo, numere os passos."
+    - "Se o problema já foi resolvido, pergunte se pode concluir o atendimento."
+
   nunca:
     - "Prometer prazos ou preços que não estejam nos documentos."
-    - "Pedir senha ou código de verificação ao cliente."
+    - "Pedir senha, código de verificação ou dados de cartão."
     - "Culpar o cliente pelo problema."
-  quando_usar_template: "Quando a janela de 24h do WhatsApp estiver fechada."
+    - "Prometer visita técnica sem confirmar com o time de campo."
+    - "Mandar links que não sejam do site oficial."
+
+  quando_usar_template: "Quando a janela de 24h do WhatsApp estiver fechada ou para o primeiro contato ativo."
+
+  # Respostas modelo. O Claude imita o estilo (não copia palavra por palavra).
   exemplos:
-    - situacao: "Cliente diz que não consegue acessar o sistema"
+    - situacao: "Cliente diz que uma câmera está offline"
       resposta: |
-        Boa tarde, Maria! Sinto muito pelo transtorno.
-        Para eu verificar, você consegue me dizer se aparece alguma mensagem de erro na tela?
-        Equipe de Suporte
+        Boa tarde, Maria! Vou te ajudar com isso.
+        Para eu verificar, me confirma:
+        1. Qual câmera está offline (nome que aparece no app)?
+        2. Desde quando?
+        Enquanto isso, vale conferir se o equipamento está ligado na tomada.
+        Equipe de Suporte Acme
+
+    - situacao: "Cliente não consegue entrar no app"
+      resposta: |
+        Bom dia, João! Vamos resolver.
+        Tenta, por favor, o "Esqueci minha senha" na tela de login, com o e-mail cadastrado.
+        Se o e-mail não chegar em 5 minutos, me avisa que eu verifico o cadastro por aqui.
+        Equipe de Suporte Acme
+
+    - situacao: "Cliente pede gravação antiga"
+      resposta: |
+        Boa tarde, Carla! As gravações ficam disponíveis por 30 dias no seu plano.
+        Me passa a câmera, o dia e o horário aproximado que eu te mostro como baixar o trecho.
+        Equipe de Suporte Acme
+
+    - situacao: "Cliente quer cancelar"
+      resposta: |
+        Boa tarde, Pedro. Entendi, sinto muito que não atendeu.
+        Antes de seguir, posso perguntar o motivo? Às vezes dá para ajustar o plano.
+        Se preferir cancelar mesmo, eu te explico os próximos passos.
+        Equipe de Suporte Acme
 
 conhecimento:
   pasta: ~/.config/aspa-mcp/conhecimento   # .md, .txt, .pdf, .csv, .json, .yaml (subpastas valem)
@@ -38,6 +81,7 @@ auditoria:
   arquivo: ~/.local/share/aspa-mcp/auditoria.jsonl   # registro de toda ação feita no Aspa
   incluir_texto: true                                 # false: guarda só o tamanho dos textos
 
+# Notificações padrão da equipe. Cada pessoa ajusta no pessoal.yaml.
 notificacoes:
   abas: [meus]                         # meus, pendentes, todos
   apenas_mensagens_de_cliente: true    # true: só avisa quando chega mensagem do cliente

@@ -257,8 +257,18 @@ server.registerTool(
   local(() => {
     const { config, sources, errors } = loadConfig();
     const drafts = config.rascunhos;
+    const warnings = [];
+    if (/^(nome da empresa|acme monitoramento)?$/i.test(String(config.empresa.nome ?? "").trim())) {
+      warnings.push("empresa.nome ainda é de modelo ou exemplo: peça ao usuário para preencher o equipe.yaml antes de citar a empresa.");
+    }
+    if (/seu nome|acme/i.test(String(drafts.assinatura ?? ""))) warnings.push("A assinatura ainda é de modelo ou exemplo: confirme com o usuário qual assinatura usar.");
+    const sampleDocs = searchDocuments(config.conhecimento.pasta, "EXEMPLO FICTÍCIO", 50).map((hit) => hit.arquivo);
+    if (sampleDocs.length) {
+      warnings.push(`Documentos de exemplo fictício na pasta de conhecimento (não use os dados deles com clientes): ${[...new Set(sampleDocs)].join(", ")}`);
+    }
     return {
       arquivos_de_configuracao: { equipe: TEAM_CONFIG, pessoal: PERSONAL_CONFIG, carregados: sources },
+      avisos: warnings.length ? warnings : undefined,
       erros_de_configuracao: errors.length ? errors : undefined,
       empresa: config.empresa,
       rascunhos: { ...drafts, saudacao_sugerida: drafts.saudacao_por_horario ? greetingFor(config.notificacoes.fuso) : undefined },

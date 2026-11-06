@@ -131,7 +131,7 @@ Deve aparecer `active (running)`.
 npm run init-config
 ```
 
-Cria `~/.config/aspa-mcp/equipe.yaml`, `~/.config/aspa-mcp/pessoal.yaml` e a pasta `~/.config/aspa-mcp/conhecimento/`. Você personaliza depois (veja a [seção 5](#5-personalização-tom-regras-e-documentos)).
+Cria `~/.config/aspa-mcp/equipe.yaml`, `~/.config/aspa-mcp/pessoal.yaml` e a pasta `~/.config/aspa-mcp/conhecimento/`, a partir dos modelos em branco. Para preencher, use o exemplo completo da pasta `exemplos/` (veja a [seção 5](#5-personalização-tom-regras-e-documentos)).
 
 ### Passo 4: conectar ao Claude Code
 
@@ -336,7 +336,42 @@ Tudo é configurável em arquivos simples, em `~/.config/aspa-mcp/`:
 | `pessoal.yaml` | cada atendente | Sua assinatura, seus horários e canais de aviso. **Tem prioridade** sobre o da equipe |
 | `conhecimento/` | a equipe | Documentos que ensinam o Claude sobre a empresa |
 
-**As mudanças valem na hora**, sem reiniciar nada. Os modelos comentados estão em [`exemplos/`](exemplos/).
+**As mudanças valem na hora**, sem reiniciar nada.
+
+### Modelos e exemplo pronto
+
+O repositório traz duas pastas para você não começar do zero:
+
+| Pasta | O que é | Como usar |
+| --- | --- | --- |
+| [`modelos/`](modelos/) | Arquivos **em branco**, comentados | O `npm run init-config` copia para `~/.config/aspa-mcp/`. É só preencher |
+| [`exemplos/`](exemplos/) | Uma configuração **completa e preenchida** de uma empresa fictícia (Acme Monitoramento) | Abra para ver como fica um `equipe.yaml`, um `pessoal.yaml` e a pasta de conhecimento de verdade. Copie o **formato**, não o conteúdo |
+
+```
+exemplos/
+├── equipe.yaml                      empresa, tom, regras, 4 respostas modelo, notificações
+├── pessoal.yaml                     assinatura e combinações de notificação comentadas
+└── conhecimento/
+    ├── empresa.md                   quem somos, canais, horários, SLA, times internos
+    ├── faq.md                       perguntas frequentes com respostas aprovadas
+    ├── politicas.md                 cancelamento, reembolso, visita técnica, LGPD
+    ├── respostas-modelo.md          frases aprovadas para abrir, pedir dados, encaminhar e encerrar
+    ├── produtos/
+    │   ├── plano-essencial.md       preço, limites, o que inclui e o que não inclui
+    │   └── plano-profissional.md
+    └── procedimentos/
+        ├── camera-offline.md        perguntas, passos, quando escalar, o que não fazer
+        └── acesso-ao-app.md
+```
+
+Passo a passo sugerido:
+
+1. Rode `npm run init-config` (cria os arquivos em branco).
+2. Abra `exemplos/equipe.yaml` ao lado do seu `~/.config/aspa-mcp/equipe.yaml` e preencha o seu seguindo o formato.
+3. Para cada documento de `exemplos/conhecimento/` que fizer sentido, crie o equivalente real em `~/.config/aspa-mcp/conhecimento/`.
+4. Peça ao Claude: *"Mostra as diretrizes do Aspa"*. Se aparecer algum **aviso**, ainda há valor de modelo ou exemplo para trocar.
+
+> **Não copie os documentos de exemplo sem editar.** Eles têm preços, prazos e políticas inventados, marcados com "EXEMPLO FICTÍCIO". Se ficarem na sua pasta de conhecimento, as diretrizes avisam o Claude para não usar esses dados com clientes.
 
 ```sh
 nano ~/.config/aspa-mcp/equipe.yaml
