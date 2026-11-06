@@ -65,6 +65,7 @@ flowchart LR
     D -->|"avisos"| UB["🖥️ Ubuntu"]
     D -->|"avisos"| SL["💬 Slack e celular"]
 
+    linkStyle default stroke:#6200E9,color:#2B0066
     classDef ext fill:#EFE5FF,stroke:#6200E9,color:#2B0066
     classDef store fill:#FFFFFF,stroke:#6200E9,color:#2B0066
     class ASPA,CLI,UB,SL ext
