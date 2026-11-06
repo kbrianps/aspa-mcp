@@ -49,55 +49,21 @@
 
 ## Como funciona
 
-```mermaid
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#6200E9", "primaryTextColor": "#FFFFFF", "primaryBorderColor": "#4A00B0", "lineColor": "#6200E9", "clusterBkg": "#F7F2FF", "clusterBorder": "#6200E9", "edgeLabelBackground": "#EFE5FF", "textColor": "#2B0066", "titleColor": "#2B0066", "fontFamily": "Inter, Segoe UI, Helvetica, Arial, sans-serif"}}}%%
-flowchart LR
-    subgraph PC["💻 Computador do atendente"]
-        direction LR
-        CC["🤖 Claude Code"] -->|"MCP (stdio)"| MCP["aspa-mcp<br/>servidor MCP"]
-        MCP -->|"socket local"| D["aspa-mcp<br/>serviço em segundo plano"]
-        MCP -.->|"lê"| CFG[("📁 equipe.yaml<br/>pessoal.yaml<br/>conhecimento/")]
-        D --> CH["🌐 Chrome invisível<br/>perfil próprio"]
-        D -.-> W["🎙️ Whisper local<br/>(opcional)"]
-    end
-    CH <-->|"painel oficial"| ASPA["Aspa Chat<br/>app.aspa.chat"]
-    ASPA <-->|"WhatsApp"| CLI["👥 Clientes"]
-    D -->|"avisos"| UB["🖥️ Ubuntu"]
-    D -->|"avisos"| SL["💬 Slack e celular"]
+<p align="center">
+  <img src="assets/arquitetura.png" alt="Arquitetura do aspa-mcp: Claude Code, servidor MCP, serviço em segundo plano, Chrome invisível, Aspa Chat, clientes e notificações" width="100%">
+</p>
 
-    linkStyle default stroke:#6200E9,color:#2B0066
-    classDef ext fill:#EFE5FF,stroke:#6200E9,color:#2B0066
-    classDef store fill:#FFFFFF,stroke:#6200E9,color:#2B0066
-    class ASPA,CLI,UB,SL ext
-    class CFG store
-```
+<sub>Fonte editável do diagrama: <a href="assets/arquitetura.mmd"><code>assets/arquitetura.mmd</code></a></sub>
 
 O **serviço em segundo plano** mantém um Chrome invisível logado no Aspa, executa uma ação por vez no painel e vigia mensagens novas. O **servidor MCP** é a ponte com o Claude Code e também entrega as diretrizes e os documentos da equipe.
 
 ### Um atendimento do começo ao fim
 
-```mermaid
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#6200E9", "primaryTextColor": "#FFFFFF", "primaryBorderColor": "#4A00B0", "lineColor": "#6200E9", "actorBkg": "#6200E9", "actorTextColor": "#FFFFFF", "actorBorder": "#4A00B0", "signalColor": "#3B0091", "signalTextColor": "#2B0066", "noteBkgColor": "#EFE5FF", "noteTextColor": "#2B0066", "noteBorderColor": "#6200E9", "activationBkgColor": "#EFE5FF", "sequenceNumberColor": "#FFFFFF", "fontFamily": "Inter, Segoe UI, Helvetica, Arial, sans-serif"}}}%%
-sequenceDiagram
-    autonumber
-    participant C as Cliente
-    participant A as Aspa Chat
-    participant S as aspa-mcp
-    participant N as Slack / Ubuntu
-    participant V as Você + Claude
-    rect rgb(247, 242, 255)
-    C->>A: Mensagem no WhatsApp
-    S->>A: Vigia a aba "Meus"
-    S->>N: "Aspa: João, nova mensagem às 14:23"
-    V->>S: "Lê a conversa do João e prepara um rascunho"
-    S->>A: Lê histórico, anexos e áudios
-    S-->>V: Conversa + diretrizes + documentos
-    Note over V: Você revisa e ajusta o rascunho
-    V->>S: "Pode enviar" (aprovação)
-    S->>A: Envia e confere no painel
-    A->>C: Resposta
-    end
-```
+<p align="center">
+  <img src="assets/atendimento.png" alt="Sequência de um atendimento: mensagem do cliente, aviso, leitura, rascunho, aprovação e envio" width="100%">
+</p>
+
+<sub>Fonte editável do diagrama: <a href="assets/atendimento.mmd"><code>assets/atendimento.mmd</code></a></sub>
 
 ---
 
@@ -765,6 +731,15 @@ Ficam em `~/.config/aspa-mcp/env` (reinicie o serviço depois). As preferências
 
 - Depende da estrutura do painel do Aspa; se a Aspa mudar o layout, pode quebrar.
 - Reabrir só encontra conversas concluídas na última semana.
+
+### Editar os diagramas
+
+As imagens em `assets/*.png` são geradas a partir de `assets/*.mmd` (Mermaid), com fundo claro para ficarem legíveis nos temas claro e escuro do GitHub:
+
+```sh
+npx -y @mermaid-js/mermaid-cli -i assets/arquitetura.mmd -o assets/arquitetura.png -b "#FBF8FF" -s 2
+npx -y @mermaid-js/mermaid-cli -i assets/atendimento.mmd -o assets/atendimento.png -b "#FBF8FF" -s 2
+```
 
 ### Preciso do `/chrome` (Claude in Chrome)?
 
