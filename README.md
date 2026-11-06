@@ -785,7 +785,7 @@ Cada registro tem também: data e hora, duração, usuário e computador, contat
 
 O aspa-mcp é um servidor MCP padrão (stdio): funciona em qualquer cliente que aceite MCP, não só no Claude Code. O serviço em segundo plano é o mesmo para todos.
 
-> **Recomendado: modo somente leitura** (`ASPA_READ_ONLY=1`) em clientes que não sejam o Claude Code. Nesse modo o MCP oferece só as 14 ferramentas de leitura (listar, ler, buscar, estatísticas, diretrizes, anexos, transcrição, auditoria): nenhum outro agente consegue enviar, transferir, adiar ou concluir nada.
+> **Recomendado: modo somente leitura** (`ASPA_READ_ONLY=1`) em clientes que não sejam o Claude Code. Nesse modo o MCP oferece as 14 ferramentas de leitura (listar, ler, buscar, estatísticas, diretrizes, anexos, transcrição, auditoria) mais o login e a janela de revisão (`aspa_open_draft`), em que é você quem clica em enviar no Aspa: nenhum agente consegue enviar, transferir, adiar ou concluir nada sozinho.
 >
 > **LGPD:** ao ler conversas por outro cliente, o conteúdo dos clientes vai para o provedor daquele modelo (OpenAI, Google, xAI, DeepSeek, Moonshot, Zhipu...). Confira se isso é permitido antes de usar com conversas reais.
 
@@ -885,7 +885,7 @@ Ficam em `~/.config/aspa-mcp/env` (reinicie o serviço depois). As preferências
 | `ASPA_PROFILE_DIR` | `~/.local/share/aspa-mcp/profile` | Perfil com a sessão do Aspa |
 | `ASPA_CACHE_DIR` | `~/.cache/aspa-mcp` | Anexos baixados |
 | `ASPA_SOCKET` | `$XDG_RUNTIME_DIR/aspa-mcp.sock` | Socket do serviço |
-| `ASPA_READ_ONLY` | `0` | `1` expõe só as ferramentas de leitura no MCP (use em outros clientes) |
+| `ASPA_READ_ONLY` | `0` | `1` expõe só as ferramentas de leitura, o login e a janela de revisão (use em outros clientes) |
 | `ASPA_WATCH` | `1` | `0` desliga o vigia |
 | `ASPA_WATCH_INTERVAL_MS` | `20000` | Intervalo do vigia |
 | `ASPA_WHISPER_DIR` | `/var/tmp/aspa-mcp/whisper` | Instalação da transcrição |
