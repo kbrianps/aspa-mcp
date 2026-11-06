@@ -15,7 +15,8 @@
     "setup-transcribe": "node setup-transcribe.mjs",
     "test-notify": "node test-notify.mjs",
     "init-config": "node init-config.mjs",
-    "auditoria": "node audit-cli.mjs"
+    "auditoria": "node audit-cli.mjs",
+    "atualizar": "node update.mjs"
   },
   "engines": {
     "node": ">=20"

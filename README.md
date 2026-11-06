@@ -742,6 +742,25 @@ systemctl --user disable --now aspa-mcp  # parar e desligar
 
 ---
 
+### Atualizar o aspa-mcp
+
+Quando houver versão nova, o checklist de configuração avisa ("Versão nova disponível"). Para atualizar, escolha um jeito:
+
+- **Pedindo ao assistente** (Claude Code ou Codex): *"Atualiza o aspa."*
+- **No terminal**: `cd ~/dev/aspa-mcp && npm run atualizar`
+
+Os dois puxam a versão nova, instalam dependências se mudaram e reiniciam o serviço. Depois, **recarregue o MCP no cliente** para ver as ferramentas novas:
+
+| Cliente | Como recarregar |
+| --- | --- |
+| Claude Code | `/mcp` → `aspa` → **Reconnect** |
+| Codex | Feche e abra o Codex |
+| Outros | Reinicie o cliente |
+
+A configuração (`~/.config/aspa-mcp/`), a sessão do Aspa e o token do Slack não são afetados.
+
+---
+
 ## 9. O que faz e o que não faz
 
 ### Faz
@@ -889,6 +908,7 @@ Use somente as ferramentas do MCP aspa aspa_statistics e aspa_get_guidelines. Re
 | `aspa_save_knowledge` | configuração | Cria ou atualiza um documento da pasta de conhecimento |
 | `aspa_configure_slack` | configuração | Grava o seu ID de membro do Slack (o token você cola sozinho) |
 | `aspa_test_notifications` | configuração | Manda um aviso de teste e mostra o que falhou |
+| `aspa_update` | configuração | Atualiza o aspa-mcp para a versão mais nova e reinicia o serviço |
 | `aspa_audit_log` | leitura | Registro de auditoria das ações feitas no Aspa (filtros: contato, ação, data) |
 | `aspa_get_guidelines` | leitura | Empresa, tom, assinatura, saudação do horário, regras, exemplos, notificações e lista de documentos |
 | `aspa_search_knowledge` | leitura | Busca nos documentos (sem diferenciar acentos) |
@@ -960,6 +980,7 @@ Ficam em `~/.config/aspa-mcp/env` (reinicie o serviço depois). As preferências
 | `npm run test-notify` | Aviso de teste nos canais configurados |
 | `npm run auditoria -- [quantidade] [contato]` | Mostra o registro de auditoria |
 | `npm run setup-transcribe` | Instala a transcrição local |
+| `npm run atualizar` | Atualiza o aspa-mcp e reinicia o serviço |
 
 ### Limitações técnicas
 

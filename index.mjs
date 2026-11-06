@@ -7,6 +7,7 @@ import { greetingFor, loadConfig, PERSONAL_CONFIG, TEAM_CONFIG } from "./config.
 import { readAudit } from "./audit.mjs";
 import { listDocuments, readDocument, searchDocuments } from "./knowledge.mjs";
 import { saveKnowledge, setEnvValue, setupCheck, updateSettings } from "./setup.mjs";
+import { checkForUpdate, update } from "./update.mjs";
 
 const server = new McpServer(
   { name: "aspa", version: "0.4.0" },
@@ -299,8 +300,32 @@ server.registerTool(
       else if (/janela de revisão|login do Aspa/i.test(error.message)) session = "busy";
       else session = "unknown";
     }
-    return setupCheck({ service, session });
+    const result = setupCheck({ service, session });
+    const updateStatus = await checkForUpdate().catch(() => ({ available: false }));
+    result.itens.unshift({
+      id: "versao",
+      status: updateStatus.available ? "pendente" : "ok",
+      item: updateStatus.available ? `Versão nova disponível (${updateStatus.behind} atualização(ões))` : "aspa-mcp na versão mais nova",
+      proximo_passo: updateStatus.available ? "Chame aspa_update e depois recarregue o MCP no cliente." : undefined,
+    });
+    if (updateStatus.available) {
+      result.pendentes += 1;
+      result.pronto = false;
+      result.proximo = "Chame aspa_update e depois recarregue o MCP no cliente.";
+    }
+    return result;
   }),
+);
+
+server.registerTool(
+  "aspa_update",
+  {
+    description:
+      "Update aspa-mcp to the latest version from GitHub (git pull, npm install when dependencies changed, restart the background service). Refuses when there are local code changes. After it, tell the user to reload the MCP in the client (Claude Code: /mcp then Reconnect aspa; Codex: close and reopen) to see new tools.",
+    inputSchema: {},
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+  },
+  local(() => update()),
 );
 
 server.registerTool(
