@@ -20,7 +20,7 @@
 
 ## Destaques
 
-| | |
+| Recurso | O que faz |
 | --- | --- |
 | 💬 **Lê tudo** | Conversas, histórico, imagens, PDFs e áudios (com transcrição local opcional). |
 | ✍️ **Escreve no seu tom** | Tom, assinatura, regras e exemplos da equipe, mais documentos da empresa como fonte. |
@@ -50,7 +50,7 @@
 ## Como funciona
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#6200E9", "primaryTextColor": "#FFFFFF", "primaryBorderColor": "#4A00B0", "lineColor": "#6200E9", "clusterBkg": "#F7F2FF", "clusterBorder": "#6200E9", "fontFamily": "Inter, Segoe UI, Helvetica, Arial, sans-serif"}}}%%
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#6200E9", "primaryTextColor": "#FFFFFF", "primaryBorderColor": "#4A00B0", "lineColor": "#6200E9", "clusterBkg": "#F7F2FF", "clusterBorder": "#6200E9", "edgeLabelBackground": "#EFE5FF", "textColor": "#2B0066", "titleColor": "#2B0066", "fontFamily": "Inter, Segoe UI, Helvetica, Arial, sans-serif"}}}%%
 flowchart LR
     subgraph PC["💻 Computador do atendente"]
         direction LR
@@ -84,6 +84,7 @@ sequenceDiagram
     participant S as aspa-mcp
     participant N as Slack / Ubuntu
     participant V as Você + Claude
+    rect rgb(247, 242, 255)
     C->>A: Mensagem no WhatsApp
     S->>A: Vigia a aba "Meus"
     S->>N: "Aspa: João, nova mensagem às 14:23"
@@ -94,6 +95,7 @@ sequenceDiagram
     V->>S: "Pode enviar" (aprovação)
     S->>A: Envia e confere no painel
     A->>C: Resposta
+    end
 ```
 
 ---
