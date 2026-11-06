@@ -304,6 +304,7 @@ export const TITLES = {
   aspa_audit_log: "Registro de auditoria",
   aspa_search_knowledge: "Buscar nos documentos",
   aspa_read_knowledge: "Ler documento",
+  aspa_auto_drafts: "Rascunhos automáticos",
 };
 
 const IDEMPOTENT = new Set(["markUnread", "setPromotionsBlocked", "renameContact", "assume"]);
@@ -322,6 +323,7 @@ export const LOCAL_AUDIT_LABELS = {
   saveKnowledge: "salvar_documento",
   configureSlack: "configurar_slack",
   update: "atualizar",
+  autoDraft: "rascunho_automatico",
 };
 
 export const ACTION_LABELS = { ...AUDIT_LABELS, ...LOCAL_AUDIT_LABELS };

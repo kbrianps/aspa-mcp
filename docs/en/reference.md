@@ -32,6 +32,7 @@
 | `aspa_update` | setup | Updates aspa-mcp to the latest version and restarts the service (not in read-only mode; does not restart while a window or action is in progress) |
 | `aspa_audit_log` | read | Audit log of the actions taken in Aspa (filters: contact, action, date) |
 | `aspa_get_guidelines` | read | Company, tone, signature, time-of-day greeting, rules, examples, notifications and list of documents |
+| `aspa_auto_drafts` | read | Drafts prepared automatically when the customer wrote (summary, including audio, and suggested reply) |
 | `aspa_search_knowledge` | read | Searches the documents (accent-insensitive) |
 | `aspa_read_knowledge` | read | Reads a document |
 | `aspa_login` | session | Opens the window for you to sign in to Aspa (up to 5 min) and returns right away; confirm afterwards with `aspa_setup_check` |

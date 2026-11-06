@@ -30,3 +30,12 @@ notificacoes:
     fim: "18:00"
   fora_do_horario: acumular             # acumular: resumo quando o expediente começa; ignorar: descarta
   intervalo_minimo_minutos: 5           # no máximo 1 aviso a cada 5 minutos por contato
+
+# Rascunho automático: quando um cliente escreve numa conversa que entra nos seus avisos,
+# o Claude Code lê a conversa (e transcreve áudios) em segundo plano e manda no Slack um
+# resumo e um rascunho de resposta. Nada é enviado ao cliente sem você pedir.
+rascunho_automatico:
+  ativo: false
+  # contatos: [Cliente VIP]             # só para estes contatos (vazio = todos dos seus avisos)
+  # espera_segundos: 45                 # espera o cliente parar de digitar
+  # maximo_por_hora: 20                 # limite de rascunhos por hora

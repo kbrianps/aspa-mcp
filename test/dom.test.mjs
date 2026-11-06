@@ -31,7 +31,7 @@ after(async () => {
 
 test("parses the conversation list", { skip: !available && "Chrome not installed" }, async () => {
   const items = await page.evaluate(parseListInPage, ICON_LINE.source);
-  assert.equal(items.length, 2);
+  assert.equal(items.length, 3);
   assert.equal(items[0].contact, "Maria Exemplo");
   assert.equal(items[0].time, "13:12");
   assert.equal(items[0].unread, true);
@@ -39,6 +39,8 @@ test("parses the conversation list", { skip: !available && "Chrome not installed
   assert.equal(items[0].agent, "Ana Atendente");
   assert.equal(items[1].unread, false);
   assert.equal(items[1].assigned, false);
+  assert.equal(items[2].contact, "Carla Exemplo");
+  assert.equal(items[2].assigned, null);
 });
 
 test("keeps short customer replies and drops icon names", { skip: !available && "Chrome not installed" }, async () => {

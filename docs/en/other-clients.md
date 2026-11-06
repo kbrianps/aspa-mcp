@@ -4,9 +4,9 @@
 
 aspa-mcp is a standard MCP server (stdio): it works in any client that supports MCP, not only in Claude Code. The background service is the same for all of them.
 
-> **Recommended: read-only mode** (`ASPA_READ_ONLY=1`) in clients other than Claude Code. In this mode the MCP offers 21 tools: the 15 read tools (list, read, search, statistics, guidelines, documents, attachments, transcription, audit, checklist), login, the review window (`aspa_open_draft`, where you are the one who clicks send in Aspa) and the 4 local setup tools (settings, documents, Slack ID and alert test). No AI agent can send, transfer, snooze or close anything on its own, and code updates are left out.
+> **Recommended: read-only mode** (`ASPA_READ_ONLY=1`) in clients other than Claude Code. In this mode the MCP offers 22 tools: the 16 read tools (list, read, search, statistics, guidelines, documents, attachments, transcription, audit, checklist, automatic drafts), login, the review window (`aspa_open_draft`, where you are the one who clicks send in Aspa) and the 4 local setup tools (settings, documents, Slack ID and alert test). No AI agent can send, transfer, snooze or close anything on its own, and code updates are left out.
 >
-> **Check that it worked:** ask *"Which Aspa tools do you have?"*. In read-only mode none of them may send, transfer, snooze or conclude. If they show up (36 tools in total), the client was registered without `ASPA_READ_ONLY=1`: remove it and register again.
+> **Check that it worked:** ask *"Which Aspa tools do you have?"*. In read-only mode none of them may send, transfer, snooze or conclude. If they show up (37 tools in total), the client was registered without `ASPA_READ_ONLY=1`: remove it and register again.
 >
 > **To enforce it on the whole computer**, also put `ASPA_READ_ONLY=1` in `~/.config/aspa-mcp/env` and restart the service (`systemctl --user restart aspa-mcp`). The service itself then refuses every write, even if a client is registered without the variable.
 >

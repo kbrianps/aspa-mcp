@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, extname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,7 +13,7 @@ import { transcriptionEnabled } from "./transcription.mjs";
 const FILES = { equipe: TEAM_CONFIG, pessoal: PERSONAL_CONFIG };
 const TEMPLATES = fileURLToPath(new URL("./modelos/", import.meta.url));
 const TEXT_EXTENSIONS = new Set([".md", ".txt", ".csv", ".json", ".yaml", ".yml"]);
-const EDITABLE_SECTIONS = /^(empresa|rascunhos|notificacoes)$/;
+const EDITABLE_SECTIONS = /^(empresa|rascunhos|notificacoes|rascunho_automatico)$/;
 
 export function setEnvValue(key, value) {
   mkdirSync(dirname(ENV_FILE), { recursive: true });
@@ -114,6 +115,18 @@ export function setupCheck({ service, session, health }) {
       item: health.read_only ? "Modo somente leitura: nada é enviado pelo assistente; use a janela de revisão" : "Modo completo: envios só com a sua aprovação",
     });
   }
+  const auto = config.rascunho_automatico;
+  const claudeReady = auto.ativo && spawnSync("claude", ["--version"], { stdio: "ignore", timeout: 10000 }).status === 0;
+  items.push({
+    id: "rascunho_automatico",
+    status: !auto.ativo ? "opcional" : claudeReady ? "ok" : "pendente",
+    item: auto.ativo ? `Rascunho automático ligado${auto.contatos.length ? ` (só ${auto.contatos.join(", ")})` : ""}` : "Rascunho automático quando o cliente responde",
+    proximo_passo: !auto.ativo
+      ? 'Opcional: grave rascunho_automatico.ativo = true no arquivo "pessoal" para receber no Slack um resumo e um rascunho pronto a cada mensagem nova (usa o Claude Code em segundo plano).'
+      : claudeReady
+        ? undefined
+        : "O comando claude não foi encontrado. Instale e faça login no Claude Code neste computador.",
+  });
   items.push({
     id: "transcricao",
     status: transcriptionEnabled() ? "ok" : "opcional",
@@ -141,7 +154,7 @@ export function updateSettings({ file, changes }) {
       fail(CODES.FORBIDDEN, `Por segurança, "${path}" só pode ser mudado editando o arquivo ${target} à mão.`);
     }
     if (!keys.length || !EDITABLE_SECTIONS.test(keys[0])) {
-      fail(CODES.INVALID_INPUT, `Configuração desconhecida "${path}". Use caminhos dentro de empresa, rascunhos ou notificacoes.`);
+      fail(CODES.INVALID_INPUT, `Configuração desconhecida "${path}". Use caminhos dentro de empresa, rascunhos, notificacoes ou rascunho_automatico.`);
     }
   }
   const created = ensureConfigFiles();

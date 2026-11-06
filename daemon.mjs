@@ -10,6 +10,8 @@ import { recordAudit, WRITE_METHODS } from "./audit.mjs";
 import { SOCKET_PATH, socketAlive } from "./client.mjs";
 import { loadConfig, passesFilters, withinSchedule } from "./config.mjs";
 import { isReadOnly } from "./env-file.mjs";
+import { createAutoDrafter } from "./autodraft.mjs";
+import { normalizeText } from "./common.mjs";
 import { AspaError, CODES, toPayload } from "./errors.mjs";
 import { enabledChannels, notify } from "./notify.mjs";
 import { TOOLS } from "./tools.mjs";
@@ -198,12 +200,34 @@ function handleActivity(item, { isNew = false } = {}) {
     if (settings.fora_do_horario === "acumular") pending.set(item.contact, item);
     return;
   }
+  if (item.unread) maybeAutoDraft(item);
   const cooldown = settings.intervalo_minimo_minutos * 60000;
   if (cooldown && Date.now() - (lastNotified.get(item.contact) ?? 0) < cooldown) return;
   lastNotified.set(item.contact, Date.now());
   const kind = announceNew ? "new_conversation" : item.unread ? "message" : "activity";
   const headline = { new_conversation: "Nova conversa", message: "Nova mensagem", activity: "Nova atividade" }[kind];
-  notify({ kind, contact: item.contact, headline, time: item.time, agent: settings.mostrar_atendente ? (item.agent ?? (item.assigned ? "atendente não identificado" : "sem atendente")) : undefined }, settings.canais);
+  notify({ kind, contact: item.contact, headline, time: item.time, agent: settings.mostrar_atendente ? (item.agent ?? (item.assigned === false ? "sem atendente" : "atendente não identificado")) : undefined }, settings.canais);
+}
+
+const autoDrafter = createAutoDrafter({
+  settings: () => loadConfig().config.rascunho_automatico,
+  onDraft: async (entry) => {
+    console.error(`[autodraft] draft ready for ${entry.contato} in ${entry.duracao_s}s`);
+    recordAudit({ method: "autoDraft", args: { contact: entry.contato }, status: "ok", result: { note: entry.rascunho ? "rascunho pronto" : "sem resposta necessária" }, startedAt: Date.now() });
+    await notify({ kind: "draft", contact: entry.contato, summary: entry.resumo, draft: entry.rascunho }, currentNotificationSettings().canais);
+  },
+  onError: (contact, error) => {
+    console.error(`[autodraft] ${contact}: ${error.message}`);
+    recordAudit({ method: "autoDraft", args: { contact }, status: "erro", error: error.message, startedAt: Date.now() });
+  },
+});
+
+function maybeAutoDraft(item) {
+  const auto = loadConfig().config.rascunho_automatico;
+  if (!auto.ativo) return;
+  const contact = normalizeText(item.contact);
+  if (auto.contatos.length && !auto.contatos.some((name) => contact.includes(normalizeText(name)))) return;
+  autoDrafter.schedule(item.contact);
 }
 
 function flushPending() {
@@ -286,6 +310,7 @@ const stop = async () => {
   if (stopping) return;
   stopping = true;
   for (const timer of timers) clearInterval(timer);
+  autoDrafter.stop();
   server.close();
   console.error("[daemon] stopping: waiting for the current action to finish");
   await Promise.race([aspa.drain(), new Promise((resolve) => setTimeout(resolve, 20000))]);

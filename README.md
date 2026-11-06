@@ -137,6 +137,7 @@ Nada é enviado, transferido ou concluído sem a sua aprovação, toda ação co
 - [x] Transferência, assumir conversa de outro atendente e criação de contato testados ao vivo
 - [x] Modo somente leitura para outros clientes de MCP
 - [x] Configuração guiada pelo próprio MCP (checklist, ajustes, documentos, Slack e teste de avisos)
+- [x] Rascunho automático no Slack quando o cliente responde (resumo, áudio transcrito e resposta sugerida)
 - [ ] Transcrição na GPU (CUDA)
 - [ ] Usar as Respostas Rápidas automaticamente nos rascunhos (a conta ainda não tem nenhuma)
 - [ ] Editar e-mail e empresa do contato; status do atendente

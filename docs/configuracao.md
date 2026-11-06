@@ -163,6 +163,27 @@ Exemplos prontos (cole no `pessoal.yaml`):
 | Tudo, menos um contato de testes | `contatos_ignorar: [Teste]` |
 | Só de um cliente importante | `abas: [todos]` e `contatos_incluir: [ACME]` |
 
+### Rascunho automático quando o cliente responde
+
+Quando um cliente escreve numa conversa que entra nos seus avisos, o aspa-mcp chama o Claude Code em segundo plano. Ele lê a conversa, transcreve os áudios, segue as diretrizes e os documentos da empresa e manda no Slack (e no Ubuntu) um **resumo** do que o cliente disse e um **rascunho** de resposta. Se não houver nada a responder, ele avisa isso.
+
+Nada é enviado ao cliente. Para enviar, peça ao assistente: *"manda o rascunho do <contato>"*. Ele mostra o rascunho (ferramenta `aspa_auto_drafts`), confirma com você e só então envia.
+
+```yaml
+rascunho_automatico:
+  ativo: true
+  contatos: []          # vazio = todas as conversas dos seus avisos
+  espera_segundos: 45   # espera o cliente parar de digitar antes de rascunhar
+  maximo_por_hora: 20   # limite de rascunhos por hora
+  modelo: ""            # opcional: modelo do Claude Code; vazio usa o padrão
+```
+
+- Precisa do **Claude Code** instalado e logado neste computador (`claude --version`).
+- O Claude Code roda **sem terminal e sem arquivos**, só com as ferramentas de leitura do Aspa (o MCP em modo somente leitura): não consegue enviar, transferir nem concluir nada.
+- Cada rascunho usa a sua cota do Claude e leva cerca de 30 segundos. Use `contatos` e `maximo_por_hora` para limitar.
+- O conteúdo da conversa vai para o modelo, como já acontece quando você pede um rascunho.
+- Os rascunhos ficam em `~/.local/share/aspa-mcp/rascunhos.jsonl` (só você lê) e entram no registro de auditoria.
+
 ### Conferir a configuração
 
 Peça ao assistente:

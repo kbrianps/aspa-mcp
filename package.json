@@ -1,6 +1,6 @@
 {
   "name": "aspa-mcp",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": true,
   "type": "module",
   "description": "Local MCP server and background service to read and act on Aspa Chat support conversations from AI assistants.",

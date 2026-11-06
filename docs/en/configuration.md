@@ -161,6 +161,27 @@ Ready-made examples (paste into `pessoal.yaml`):
 | Everything except a test contact | `contatos_ignorar: [Teste]` |
 | Only one important customer | `abas: [todos]` and `contatos_incluir: [ACME]` |
 
+### Automatic draft when the customer replies
+
+When a customer writes in a conversation covered by your alerts, aspa-mcp runs Claude Code in the background. It reads the conversation, transcribes audio, follows the company guidelines and documents, and sends to Slack (and Ubuntu) a **summary** of what the customer said and a **draft** reply. If nothing needs a reply, it says so.
+
+Nothing is sent to the customer. To send, ask the assistant: *"send the draft for <contact>"*. It shows the draft (`aspa_auto_drafts` tool), confirms with you and only then sends it.
+
+```yaml
+rascunho_automatico:
+  ativo: true
+  contatos: []          # empty = every conversation in your alerts
+  espera_segundos: 45   # waits for the customer to stop typing before drafting
+  maximo_por_hora: 20   # drafts per hour limit
+  modelo: ""            # optional Claude Code model; empty uses the default
+```
+
+- Requires **Claude Code** installed and signed in on this computer (`claude --version`).
+- Claude Code runs **without terminal or file tools**, only with the Aspa read tools (the MCP in read-only mode): it cannot send, transfer or close anything.
+- Each draft uses your Claude quota and takes about 30 seconds. Use `contatos` and `maximo_por_hora` to limit it.
+- The conversation content goes to the model, as it already does when you ask for a draft.
+- Drafts are stored in `~/.local/share/aspa-mcp/rascunhos.jsonl` (only you can read it) and logged in the audit log.
+
 ### Check the configuration
 
 Ask the assistant:

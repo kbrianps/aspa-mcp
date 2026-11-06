@@ -2,6 +2,15 @@
 
 All notable changes to aspa-mcp. Versions follow [Semantic Versioning](https://semver.org/); `npm run atualizar` installs the latest tagged version.
 
+## 0.8.0 - 2026-11-06
+
+### Added
+- Automatic draft when the customer replies (`rascunho_automatico`): Claude Code runs in the background with only the Aspa read tools, reads the conversation, transcribes audio and sends a summary and a draft reply to Slack and Ubuntu. Nothing is sent to the customer.
+- `aspa_auto_drafts` tool to review the prepared drafts before sending.
+
+### Fixed
+- Alerts say "atendente não identificado" instead of "sem atendente" when the agent line has not loaded yet.
+
 ## 0.7.0 - 2026-11-06
 
 ### Added

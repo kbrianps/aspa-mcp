@@ -104,7 +104,8 @@ export function parseListInPage(iconPattern) {
     const hasAgentIcon = agentCaption?.querySelector("mat-icon")?.textContent.trim() === "support_agent";
     const agentName = hasAgentIcon ? linesOf(agentCaption).join(" ").replace(/\s+/g, " ").trim() : "";
     const details = lines.slice(1).filter((line) => line !== time);
-    const assigned = hasAgentIcon && !details.some((line) => /sem usu[aá]rio/i.test(line));
+    const explicitlyUnassigned = [...details, ...captions].some((line) => /sem usu[aá]rio/i.test(line));
+    const assigned = explicitlyUnassigned ? false : hasAgentIcon ? true : null;
     return { index, contact: lines[0] ?? "", time, unread, assigned, agent: assigned ? agentName || null : null, details, captions };
   });
 }

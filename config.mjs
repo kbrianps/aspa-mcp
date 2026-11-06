@@ -27,6 +27,7 @@ export const DEFAULTS = {
   },
   conhecimento: { pasta: join(CONFIG_DIR, "conhecimento") },
   auditoria: { arquivo: "", incluir_texto: true },
+  rascunho_automatico: { ativo: false, cliente: "claude", modelo: "", contatos: [], espera_segundos: 45, maximo_por_hora: 20 },
   notificacoes: {
     abas: ["meus"],
     apenas_mensagens_de_cliente: true,
@@ -90,6 +91,7 @@ const BOOLEANS = [
   ["notificacoes", "nova_conversa"],
   ["notificacoes", "mostrar_atendente"],
   ["notificacoes", "sessao_expirada"],
+  ["rascunho_automatico", "ativo"],
 ];
 const OPEN_FIELDS = new Set(["empresa"]);
 
@@ -156,6 +158,15 @@ function validate(config, errors) {
     if (values.some((v) => !v.trim())) errors.push(`notificacoes.${field}: tem um nome vazio, que foi ignorado`);
     n[field] = values.filter((v) => v.trim());
   }
+  const auto = config.rascunho_automatico;
+  if (auto.cliente !== "claude") {
+    errors.push('rascunho_automatico.cliente: por enquanto só "claude" é aceito');
+    auto.cliente = "claude";
+  }
+  if (typeof auto.modelo !== "string") auto.modelo = "";
+  auto.contatos = asList(auto.contatos).map(String).filter((v) => v.trim());
+  auto.espera_segundos = Math.min(600, Math.max(10, Number(auto.espera_segundos) || DEFAULTS.rascunho_automatico.espera_segundos));
+  auto.maximo_por_hora = Math.min(200, Math.max(1, Number(auto.maximo_por_hora) || DEFAULTS.rascunho_automatico.maximo_por_hora));
   config.rascunhos.sempre = asList(config.rascunhos.sempre);
   config.rascunhos.nunca = asList(config.rascunhos.nunca);
   config.rascunhos.exemplos = asList(config.rascunhos.exemplos);
@@ -217,6 +228,7 @@ export function passesFilters(n, item) {
   if (n.atendentes.length) {
     const agent = normalizeName(item.agent);
     const wanted = n.atendentes.map(normalizeName);
+    if (item.assigned === null && !item.agent) return true;
     const assigned = item.assigned ?? !!item.agent;
     const words = ` ${agent.replace(/\s+/g, " ")} `;
     const match = assigned

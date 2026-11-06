@@ -137,6 +137,7 @@ Nothing is sent, transferred or concluded without your approval, every action fi
 - [x] Transfer, assuming another agent's conversation and contact creation tested live
 - [x] Read-only mode for other MCP clients
 - [x] Guided setup by the MCP itself (checklist, settings, documents, Slack and alert test)
+- [x] Automatic draft in Slack when the customer replies (summary, transcribed audio and suggested reply)
 - [ ] GPU transcription (CUDA)
 - [ ] Use quick replies automatically in drafts (the account has none yet)
 - [ ] Edit contact e-mail and company; agent status

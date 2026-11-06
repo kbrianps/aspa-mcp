@@ -34,6 +34,7 @@
 | `aspa_update` | configuração | Atualiza o aspa-mcp para a versão mais nova e reinicia o serviço (fora do modo somente leitura; não reinicia com janela ou ação em andamento) |
 | `aspa_audit_log` | leitura | Registro de auditoria das ações feitas no Aspa (filtros: contato, ação, data) |
 | `aspa_get_guidelines` | leitura | Empresa, tom, assinatura, saudação do horário, regras, exemplos, notificações e lista de documentos |
+| `aspa_auto_drafts` | leitura | Rascunhos preparados sozinhos quando o cliente escreveu (resumo, áudio incluído, e resposta sugerida) |
 | `aspa_search_knowledge` | leitura | Busca nos documentos (sem diferenciar acentos) |
 | `aspa_read_knowledge` | leitura | Lê um documento |
 | `aspa_login` | sessão | Abre a janela para você entrar no Aspa (até 5 min) e responde na hora; confira depois com `aspa_setup_check` |

@@ -55,6 +55,7 @@ test("notification filters by contact and agent", () => {
   assert.equal(passesFilters({ ...base, atendentes: ["sem_atendente"] }, { contact: "X", assigned: false }), true);
   assert.equal(passesFilters({ ...base, atendentes: ["sem_atendente"] }, { contact: "X", assigned: true, agent: null }), false);
   assert.equal(passesFilters({ ...base, atendentes: ["ana"] }, { contact: "X", assigned: true, agent: "Ana Souza" }), true);
+  assert.equal(passesFilters({ ...base, atendentes: ["ana"] }, { contact: "X", assigned: null, agent: null }), true);
 });
 
 test("booleans must be real booleans", () => {

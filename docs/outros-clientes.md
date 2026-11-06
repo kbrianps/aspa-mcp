@@ -6,9 +6,9 @@
 
 O aspa-mcp é um servidor MCP padrão (stdio): funciona em qualquer cliente que aceite MCP, não só no Claude Code. O serviço em segundo plano é o mesmo para todos.
 
-> **Recomendado: modo somente leitura** (`ASPA_READ_ONLY=1`) em clientes que não sejam o Claude Code. Nesse modo o MCP oferece 21 ferramentas: as 15 de leitura (listar, ler, buscar, estatísticas, diretrizes, documentos, anexos, transcrição, auditoria, checklist), o login, a janela de revisão (`aspa_open_draft`, em que é você quem clica em enviar no Aspa) e as 4 de configuração local (ajustes, documentos, ID do Slack e teste de avisos). Nenhum agente consegue enviar, transferir, adiar ou concluir nada sozinho, e a atualização do código fica de fora.
+> **Recomendado: modo somente leitura** (`ASPA_READ_ONLY=1`) em clientes que não sejam o Claude Code. Nesse modo o MCP oferece 22 ferramentas: as 16 de leitura (listar, ler, buscar, estatísticas, diretrizes, documentos, anexos, transcrição, auditoria, checklist, rascunhos automáticos), o login, a janela de revisão (`aspa_open_draft`, em que é você quem clica em enviar no Aspa) e as 4 de configuração local (ajustes, documentos, ID do Slack e teste de avisos). Nenhum agente consegue enviar, transferir, adiar ou concluir nada sozinho, e a atualização do código fica de fora.
 >
-> **Confira se pegou:** peça *"Quais ferramentas do Aspa você tem?"*. No modo somente leitura não pode aparecer nenhuma de enviar, transferir, adiar ou concluir. Se aparecer (36 ferramentas no total), o cliente foi registrado sem `ASPA_READ_ONLY=1`: remova e registre de novo.
+> **Confira se pegou:** peça *"Quais ferramentas do Aspa você tem?"*. No modo somente leitura não pode aparecer nenhuma de enviar, transferir, adiar ou concluir. Se aparecer (37 ferramentas no total), o cliente foi registrado sem `ASPA_READ_ONLY=1`: remova e registre de novo.
 >
 > **Para valer no computador inteiro**, ponha `ASPA_READ_ONLY=1` também em `~/.config/aspa-mcp/env` e reinicie o serviço (`systemctl --user restart aspa-mcp`). Aí o próprio serviço recusa qualquer escrita, mesmo que um cliente seja registrado sem a variável.
 >

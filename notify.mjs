@@ -63,11 +63,20 @@ const KINDS = {
   degraded: { emoji: "🛠️", title: "Avisos do Aspa parados", hint: "Peça ao seu assistente: _roda o aspa_setup_check_" },
   recovered: { emoji: "✅", title: "Avisos do Aspa voltaram", hint: "Nada a fazer" },
   test: { emoji: "✅", title: "Notificações do aspa-mcp funcionando", hint: "Este é um aviso de teste" },
+  draft: { emoji: "✍️", title: "Rascunho pronto no Aspa", hint: "Revise e peça ao seu assistente: _manda o rascunho_" },
 };
 
 export const slackEscape = (value) => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-function slackPayload({ kind, contact: rawContact, contacts: rawContacts, headline: rawHeadline, time, agent: rawAgent }) {
+const quote = (text, max) => {
+  const clipped = text.length > max ? `${text.slice(0, max)}…` : text;
+  return clipped
+    .split("\n")
+    .map((line) => `> ${line}`)
+    .join("\n");
+};
+
+function slackPayload({ kind, contact: rawContact, contacts: rawContacts, headline: rawHeadline, time, agent: rawAgent, summary, draft }) {
   const info = KINDS[kind] ?? KINDS.message;
   const contact = rawContact && slackEscape(rawContact);
   const contacts = rawContacts?.map(slackEscape);
@@ -76,7 +85,9 @@ function slackPayload({ kind, contact: rawContact, contacts: rawContacts, headli
   const lines = [];
   if (contact) lines.push(`*${contact}*${time ? `   ·   ${time}` : ""}${agent ? `   ·   👤 ${agent}` : ""}`);
   if (contacts?.length) lines.push(contacts.map((name) => `•  ${name}`).join("\n"));
-  if (headline && !["message", "activity", "new_conversation"].includes(kind)) lines.push(headline);
+  if (headline && !["message", "activity", "new_conversation", "draft"].includes(kind)) lines.push(headline);
+  if (summary) lines.push(`*Resumo:* ${slackEscape(summary).slice(0, 600)}`);
+  if (kind === "draft") lines.push(draft ? `*Rascunho:*\n${quote(slackEscape(draft), 2000)}` : "_O assistente acha que não precisa responder._");
   return {
     text: `${info.emoji} ${info.title}${contact ? `: ${contact}` : ""}`,
     blocks: [
@@ -90,15 +101,15 @@ function slackPayload({ kind, contact: rawContact, contacts: rawContacts, headli
   };
 }
 
-export async function notify({ kind = "message", contact, contacts, headline, time, agent }, channels) {
+export async function notify({ kind = "message", contact, contacts, headline, time, agent, summary, draft }, channels) {
   const active = enabledChannels(channels);
   const { slackWebhookUrl: SLACK_WEBHOOK_URL, ntfyUrl: NTFY_URL, ntfyShowContact: NTFY_SHOW_CONTACT } = secrets();
   const info = KINDS[kind] ?? KINDS.message;
   const title = contact ? `Aspa: ${contact}` : `Aspa: ${info.title}`;
   const body = [time ? `${headline} às ${time}` : headline, agent ? `Atendente: ${agent}` : "", contacts?.join(", ")].filter(Boolean).join("\n");
-  const slack = slackPayload({ kind, contact, contacts, headline, time, agent });
+  const slack = slackPayload({ kind, contact, contacts, headline, time, agent, summary, draft });
   const tasks = [];
-  if (active.includes("desktop")) tasks.push(desktop(title, body));
+  if (active.includes("desktop")) tasks.push(desktop(title, summary ? `${body}\n${summary}`.slice(0, 400) : body));
   if (active.includes("slack-dm")) tasks.push(slackDirectMessage(slack));
   if (active.includes("slack-webhook")) {
     tasks.push(post("slack-webhook", SLACK_WEBHOOK_URL, { headers: { "content-type": "application/json" }, body: JSON.stringify(slack) }));
