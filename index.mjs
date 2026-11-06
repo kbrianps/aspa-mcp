@@ -231,7 +231,9 @@ const tools = [
   ],
 ];
 
+const READ_ONLY = process.env.ASPA_READ_ONLY === "1";
 for (const [name, method, description, inputSchema, annotations] of tools) {
+  if (READ_ONLY && !annotations.readOnlyHint) continue;
   server.registerTool(name, { description, inputSchema, annotations }, forward(method));
 }
 

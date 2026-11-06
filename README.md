@@ -42,8 +42,9 @@
 10. [Problemas comuns](#8-problemas-comuns)
 11. [O que faz e o que não faz](#9-o-que-faz-e-o-que-não-faz)
 12. [Segurança e privacidade](#10-segurança-e-privacidade)
-13. [Referência técnica](#11-referência-técnica)
-14. [Roadmap](#12-roadmap)
+13. [Usar com outros clientes de MCP](#11-usar-com-outros-clientes-de-mcp)
+14. [Referência técnica](#12-referência-técnica)
+15. [Roadmap](#13-roadmap)
 
 ---
 
@@ -714,8 +715,9 @@ systemctl --user disable --now aspa-mcp  # parar e desligar
 - **Não envia nada sozinho**: toda ação pede aprovação no Claude Code.
 - Não transcreve na nuvem; sem a instalação opcional, não transcreve.
 - Não aplica jornadas, etiquetas nem assuntos do Aspa (a conta não tem nenhum configurado).
-- Não edita e-mail ou empresa do contato, não bloqueia o número e não faz ações em massa.
-- Não muda o seu status de atendente (online/ausente) nem grava áudio.
+- Não edita e-mail ou empresa do contato (a conta não tem permissão no painel) e não apaga contatos (o painel não tem essa opção).
+- Ações em massa: o painel só oferece transferir, adiar e concluir em lote; o Claude faz o mesmo conversa por conversa.
+- Não muda o seu status de atendente nem grava áudio (para enviar áudio, use um arquivo com `aspa_send_attachment`).
 - Não assiste vídeos: só baixa o arquivo.
 - Não coloca o texto das mensagens nas notificações.
 - Não lida com a sua senha.
@@ -779,7 +781,42 @@ Cada registro tem também: data e hora, duração, usuário e computador, contat
 
 ---
 
-## 11. Referência técnica
+## 11. Usar com outros clientes de MCP
+
+O aspa-mcp é um servidor MCP padrão (stdio): funciona em qualquer cliente que aceite MCP, não só no Claude Code. O serviço em segundo plano é o mesmo para todos.
+
+> **Recomendado: modo somente leitura** (`ASPA_READ_ONLY=1`) em clientes que não sejam o Claude Code. Nesse modo o MCP oferece só as 14 ferramentas de leitura (listar, ler, buscar, estatísticas, diretrizes, anexos, transcrição, auditoria): nenhum outro agente consegue enviar, transferir, adiar ou concluir nada.
+>
+> **LGPD:** ao ler conversas por outro cliente, o conteúdo dos clientes vai para o provedor daquele modelo (OpenAI, Google, xAI, DeepSeek, Moonshot, Zhipu...). Confira se isso é permitido antes de usar com conversas reais.
+
+| Cliente | Como adicionar (somente leitura) |
+| --- | --- |
+| **Codex** | `codex mcp add aspa --env ASPA_READ_ONLY=1 -- node "$HOME/dev/aspa-mcp/index.mjs"` |
+| **Antigravity (agy)** | `agy mcp add -e ASPA_READ_ONLY=1 aspa node "$HOME/dev/aspa-mcp/index.mjs"` |
+| **opencode** (inclui DeepSeek, GLM, Kimi e outros provedores) | `opencode mcp add --global --env ASPA_READ_ONLY=1 aspa -- node "$HOME/dev/aspa-mcp/index.mjs"` |
+| **Grok Bot** | No app: configurações de MCP → adicionar servidor local (stdio) com comando `node`, argumento `$HOME/dev/aspa-mcp/index.mjs` (caminho completo) e variável `ASPA_READ_ONLY=1` |
+| **Z Code** | No app: configurações → MCP → adicionar servidor local com o mesmo comando, argumento e variável |
+| **Claude Code** (completo, com escrita) | `claude mcp add --scope user aspa -- node "$HOME/dev/aspa-mcp/index.mjs"` |
+
+Para liberar a escrita num cliente, registre de novo sem `ASPA_READ_ONLY=1`. Use clientes em **modo interativo**, aprovando cada ação; não rode agentes em modo automático com o aspa-mcp.
+
+Pedido de teste sugerido (não lê conversas):
+
+```text
+Use somente as ferramentas do MCP aspa aspa_statistics e aspa_get_guidelines. Responda: quantos atendimentos hoje, ativos e sem resposta, e qual o tom de resposta da equipe.
+```
+
+| Cliente | Situação nos testes (novembro de 2026) |
+| --- | --- |
+| Claude Code 2.1 + Claude Opus 5.5 | Testado de ponta a ponta |
+| Antigravity (agy) 1.5.2 | Encontrou e leu as ferramentas; no modo não interativo para antes de chamar (precisa de aprovação). Testar no modo interativo |
+| Codex 0.162 | Registrado; o teste não rodou porque os modelos configurados não estão liberados para a conta ChatGPT |
+| opencode 2.2.5 (DeepSeek, GLM, Kimi via Morph) | Registrado; testar no modo interativo |
+| Grok Bot 0.78, Z Code 3.16 | Configurar pelo app e testar |
+
+---
+
+## 12. Referência técnica
 
 ### Componentes
 
@@ -848,6 +885,7 @@ Ficam em `~/.config/aspa-mcp/env` (reinicie o serviço depois). As preferências
 | `ASPA_PROFILE_DIR` | `~/.local/share/aspa-mcp/profile` | Perfil com a sessão do Aspa |
 | `ASPA_CACHE_DIR` | `~/.cache/aspa-mcp` | Anexos baixados |
 | `ASPA_SOCKET` | `$XDG_RUNTIME_DIR/aspa-mcp.sock` | Socket do serviço |
+| `ASPA_READ_ONLY` | `0` | `1` expõe só as ferramentas de leitura no MCP (use em outros clientes) |
 | `ASPA_WATCH` | `1` | `0` desliga o vigia |
 | `ASPA_WATCH_INTERVAL_MS` | `20000` | Intervalo do vigia |
 | `ASPA_WHISPER_DIR` | `/var/tmp/aspa-mcp/whisper` | Instalação da transcrição |
@@ -871,6 +909,7 @@ Ficam em `~/.config/aspa-mcp/env` (reinicie o serviço depois). As preferências
 
 - Depende da estrutura do painel do Aspa; se a Aspa mudar o layout, pode quebrar.
 - Reabrir só encontra conversas concluídas na última semana.
+- O nome do atendente de outras pessoas às vezes não é carregado pelo painel na sessão do serviço: a conversa aparece como atribuída (`assigned: true`) com `agent: null`. Nesses casos o filtro de notificação por nome de atendente não dispara; `sem_atendente` continua confiável.
 
 ### Editar os diagramas
 
@@ -887,7 +926,7 @@ Não. O aspa-mcp tem o próprio Chrome invisível. O `/chrome` só serve para o 
 
 ---
 
-## 12. Roadmap
+## 13. Roadmap
 
 - [x] Leitura, anexos, transcrição local e envio com aprovação
 - [x] Concluir, reabrir, adiar, renomear e assumir conversas
@@ -903,7 +942,8 @@ Não. O aspa-mcp tem o próprio Chrome invisível. O `/chrome` só serve para o 
 - [ ] Transcrição na GPU (CUDA)
 - [ ] Usar as Respostas Rápidas automaticamente nos rascunhos (a conta ainda não tem nenhuma)
 - [ ] Editar e-mail e empresa do contato; status do atendente
-- [ ] Testar com outros clientes de MCP (Codex, Antigravity, Grok, opencode, DeepSeek, Z Code)
+- [x] Modo somente leitura para outros clientes de MCP
+- [ ] Testar de forma interativa no Codex, Antigravity, opencode (DeepSeek, GLM, Kimi), Grok Bot e Z Code
 - [ ] Jornadas e etiquetas, quando configuradas na conta
 - [ ] API oficial da Aspa no lugar da automação do painel, quando disponível
 - [ ] Webhook de mensagens: dispensar o navegador e oferecer conector para o claude.ai

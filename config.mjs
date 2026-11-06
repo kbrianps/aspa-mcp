@@ -155,7 +155,10 @@ export function passesFilters(n, item) {
   if (n.atendentes.length) {
     const agent = normalizeName(item.agent);
     const wanted = n.atendentes.map(normalizeName);
-    const match = item.agent ? wanted.some((name) => name !== "sem_atendente" && agent.includes(name)) : wanted.includes("sem_atendente");
+    const assigned = item.assigned ?? !!item.agent;
+    const match = assigned
+      ? !!item.agent && wanted.some((name) => name !== "sem_atendente" && agent.includes(name))
+      : wanted.includes("sem_atendente");
     if (!match) return false;
   }
   return true;

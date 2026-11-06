@@ -138,6 +138,16 @@ async function panelLoaded(page) {
 }
 
 async function readList(page) {
+  await page
+    .waitForFunction(
+      () => {
+        const items = document.querySelectorAll("button.list-otps-btn");
+        const captions = document.querySelectorAll("button.list-otps-btn .btn-main-txt .mat-caption");
+        return items.length > 0 && captions.length >= items.length;
+      },
+      { timeout: 3000 },
+    )
+    .catch(() => null);
   return page.evaluate((iconPattern) => {
     const icon = new RegExp(iconPattern);
     return [...document.querySelectorAll("button.list-otps-btn")].map((button, index) => {
@@ -158,12 +168,11 @@ async function readList(page) {
         )
         .filter(Boolean);
       const agentCaption = button.querySelector(".btn-main-txt .mat-caption");
-      const agent = agentCaption?.querySelector("mat-icon")?.innerText.trim() === "support_agent"
-        ? agentCaption.innerText.replace("support_agent", "").trim() || null
-        : null;
+      const hasAgentIcon = agentCaption?.querySelector("mat-icon")?.textContent.trim() === "support_agent";
+      const agentName = hasAgentIcon ? agentCaption.textContent.replace("support_agent", "").replace(/\s+/g, " ").trim() : "";
       const details = lines.slice(1).filter((line) => line !== time);
-      const unassigned = !agent || details.some((line) => /sem usu[aá]rio/i.test(line));
-      return { index, contact: lines[0] ?? "", time, unread, agent: unassigned ? null : agent, details, captions };
+      const assigned = hasAgentIcon && !details.some((line) => /sem usu[aá]rio/i.test(line));
+      return { index, contact: lines[0] ?? "", time, unread, assigned, agent: assigned ? agentName || null : null, details, captions };
     });
   }, ICON_LINE.source);
 }
@@ -504,7 +513,6 @@ async function clickListMenuItem(page, label) {
 export const listConversations = ({ tab, filters = [], order } = {}) =>
   exclusive(async () => {
     const page = await getWorkPage();
-    await page.goto(LIST_URL, { waitUntil: "domcontentloaded" });
     await ensureList(page, tab);
     const baseline = (await readList(page)).length;
     const applied = [];

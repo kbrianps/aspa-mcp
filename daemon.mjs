@@ -111,7 +111,7 @@ function handleActivity(item, { isNew = false } = {}) {
   lastNotified.set(item.contact, Date.now());
   const kind = announceNew ? "new_conversation" : item.unread ? "message" : "activity";
   const headline = { new_conversation: "Nova conversa", message: "Nova mensagem", activity: "Nova atividade" }[kind];
-  notify({ kind, contact: item.contact, headline, time: item.time, agent: settings.mostrar_atendente ? item.agent ?? "sem atendente" : undefined }, settings.canais);
+  notify({ kind, contact: item.contact, headline, time: item.time, agent: settings.mostrar_atendente ? (item.agent ?? (item.assigned ? "atendente não identificado" : "sem atendente")) : undefined }, settings.canais);
 }
 
 function flushPending() {
