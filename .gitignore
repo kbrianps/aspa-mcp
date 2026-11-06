@@ -1,0 +1,4 @@
+node_modules/
+*.har
+.env
+__pycache__/

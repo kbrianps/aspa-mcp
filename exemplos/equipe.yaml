@@ -1,0 +1,48 @@
+# Configuração da EQUIPE.
+# Pode ser igual para todos os atendentes (compartilhe o arquivo por um canal privado).
+# O pessoal.yaml de cada pessoa tem prioridade sobre este arquivo.
+# As mudanças valem na hora: não precisa reiniciar nada.
+
+empresa:
+  nome: "Nome da empresa"
+  descricao: >
+    Uma ou duas frases sobre o que a empresa faz, para quem e qual é o principal
+    produto. O Claude usa isso como contexto para escrever os rascunhos.
+
+rascunhos:
+  idioma: pt-BR
+  tom: "Cordial, objetivo e sem jargão técnico. Trate o cliente por você."
+  assinatura: "Equipe de Suporte"
+  saudacao_por_horario: true        # começa com Bom dia / Boa tarde / Boa noite
+  tamanho_maximo: "até 6 linhas"
+  sempre:
+    - "Confirme o entendimento do problema antes de propor a solução."
+    - "Se faltar informação, faça no máximo duas perguntas objetivas."
+    - "Use os documentos de conhecimento para qualquer fato sobre produtos, prazos e preços."
+  nunca:
+    - "Prometer prazos ou preços que não estejam nos documentos."
+    - "Pedir senha ou código de verificação ao cliente."
+    - "Culpar o cliente pelo problema."
+  quando_usar_template: "Quando a janela de 24h do WhatsApp estiver fechada."
+  exemplos:
+    - situacao: "Cliente diz que não consegue acessar o sistema"
+      resposta: |
+        Boa tarde, Maria! Sinto muito pelo transtorno.
+        Para eu verificar, você consegue me dizer se aparece alguma mensagem de erro na tela?
+        Equipe de Suporte
+
+conhecimento:
+  pasta: ~/.config/aspa-mcp/conhecimento   # .md, .txt, .pdf, .csv, .json, .yaml (subpastas valem)
+
+notificacoes:
+  abas: [meus]                         # meus, pendentes, todos
+  apenas_mensagens_de_cliente: true    # true: só avisa quando chega mensagem do cliente
+  canais: [desktop, slack]             # desktop, slack, ntfy (Slack e ntfy precisam do arquivo env)
+  dias: [seg, ter, qua, qui, sex]      # dom, seg, ter, qua, qui, sex, sab
+  horario:
+    inicio: "08:00"
+    fim: "18:00"
+  fuso: America/Sao_Paulo
+  fora_do_horario: acumular            # acumular: manda um resumo quando o expediente começa; ignorar: descarta
+  intervalo_minimo_minutos: 0          # evita vários avisos seguidos do mesmo contato
+  sessao_expirada: true                # avisa quando precisa fazer login de novo no Aspa
