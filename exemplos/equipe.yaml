@@ -50,3 +50,8 @@ notificacoes:
   fora_do_horario: acumular            # acumular: manda um resumo quando o expediente começa; ignorar: descarta
   intervalo_minimo_minutos: 0          # evita vários avisos seguidos do mesmo contato
   sessao_expirada: true                # avisa quando precisa fazer login de novo no Aspa
+  atendentes: []                       # vazio = qualquer; ou nomes; "sem_atendente"
+  contatos_incluir: []                 # se preenchido, só avisa destes contatos
+  contatos_ignorar: []                 # nunca avisa destes contatos
+  nova_conversa: true                  # avisa quando surge conversa nova
+  mostrar_atendente: true              # mostra o atendente no aviso

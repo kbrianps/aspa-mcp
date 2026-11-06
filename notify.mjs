@@ -49,17 +49,18 @@ const ASPA_URL = "https://app.aspa.chat/atendimento";
 const KINDS = {
   message: { emoji: "💬", title: "Nova mensagem no Aspa", hint: "Responda pelo Claude Code ou direto no Aspa" },
   activity: { emoji: "🔄", title: "Nova atividade no Aspa", hint: "Responda pelo Claude Code ou direto no Aspa" },
+  new_conversation: { emoji: "🆕", title: "Nova conversa no Aspa", hint: "Assuma pelo Claude Code ou direto no Aspa" },
   digest: { emoji: "🕘", title: "Mensagens recebidas fora do horário", hint: "Resumo enviado no início do seu expediente" },
   session: { emoji: "⚠️", title: "Sessão do Aspa expirada", hint: "Peça ao Claude: _faz o login no Aspa_" },
   test: { emoji: "✅", title: "Notificações do aspa-mcp funcionando", hint: "Este é um aviso de teste" },
 };
 
-function slackPayload({ kind, contact, contacts, headline, time }) {
+function slackPayload({ kind, contact, contacts, headline, time, agent }) {
   const info = KINDS[kind] ?? KINDS.message;
   const lines = [];
-  if (contact) lines.push(`*${contact}*${time ? `   ·   ${time}` : ""}`);
+  if (contact) lines.push(`*${contact}*${time ? `   ·   ${time}` : ""}${agent ? `   ·   👤 ${agent}` : ""}`);
   if (contacts?.length) lines.push(contacts.map((name) => `•  ${name}`).join("\n"));
-  if (headline && !["message", "activity"].includes(kind)) lines.push(headline);
+  if (headline && !["message", "activity", "new_conversation"].includes(kind)) lines.push(headline);
   return {
     text: `${info.emoji} ${info.title}${contact ? `: ${contact}` : ""}`,
     blocks: [
@@ -73,12 +74,12 @@ function slackPayload({ kind, contact, contacts, headline, time }) {
   };
 }
 
-export async function notify({ kind = "message", contact, contacts, headline, time }, channels) {
+export async function notify({ kind = "message", contact, contacts, headline, time, agent }, channels) {
   const active = enabledChannels(channels);
   const info = KINDS[kind] ?? KINDS.message;
   const title = contact ? `Aspa: ${contact}` : `Aspa: ${info.title}`;
-  const body = [time ? `${headline} às ${time}` : headline, contacts?.join(", ")].filter(Boolean).join("\n");
-  const slack = slackPayload({ kind, contact, contacts, headline, time });
+  const body = [time ? `${headline} às ${time}` : headline, agent ? `Atendente: ${agent}` : "", contacts?.join(", ")].filter(Boolean).join("\n");
+  const slack = slackPayload({ kind, contact, contacts, headline, time, agent });
   const tasks = [];
   if (active.includes("desktop")) tasks.push(desktop(title, body));
   if (active.includes("slack-dm")) tasks.push(slackDirectMessage(slack));

@@ -5,7 +5,7 @@ import { dirname } from "node:path";
 import * as aspa from "./aspa.mjs";
 import { recordAudit, WRITE_METHODS } from "./audit.mjs";
 import { SOCKET_PATH } from "./client.mjs";
-import { loadConfig, withinSchedule } from "./config.mjs";
+import { loadConfig, passesFilters, withinSchedule } from "./config.mjs";
 import { enabledChannels, notify } from "./notify.mjs";
 
 const WATCH = process.env.ASPA_WATCH !== "0";
@@ -20,13 +20,30 @@ const methods = {
   sendTemplate: aspa.sendTemplate,
   sendAttachment: aspa.sendAttachment,
   transfer: aspa.transfer,
+  assume: aspa.assume,
   snooze: aspa.snooze,
   conclude: aspa.conclude,
   reopen: aspa.reopen,
   renameContact: aspa.renameContact,
   downloadAttachments: aspa.downloadAttachments,
   transcribeAudio: aspa.transcribeAudio,
+  markUnread: aspa.markUnread,
+  searchConversation: aspa.searchConversation,
+  replyToMessage: aspa.replyToMessage,
+  snoozeUntil: aspa.snoozeUntil,
+  statistics: aspa.statistics,
+  quickReplies: aspa.quickReplies,
+  listConcluded: aspa.listConcluded,
+  searchContact: aspa.searchContact,
+  createContact: aspa.createContact,
+  setPromotionsBlocked: aspa.setPromotionsBlocked,
+  openDraft: (args) =>
+    aspa.openDraft(args, {
+      onClosed: (info) => recordAudit({ method: "draftClosed", args: { contact: info.contact }, status: "ok", result: info, startedAt: Date.now() }),
+    }),
 };
+
+const ALLOWED_DURING_REVIEW = new Set(["openDraft"]);
 
 const server = createServer((req, res) => {
   if (req.method !== "POST" || req.url !== "/call") {
@@ -41,6 +58,15 @@ const server = createServer((req, res) => {
       const { method, args = {} } = JSON.parse(body);
       const fn = methods[method];
       if (!fn) throw new Error(`Unknown method ${method}`);
+      const busy = aspa.interactiveMode();
+      if (busy && !ALLOWED_DURING_REVIEW.has(method)) {
+        throw new Error(
+          busy === "review"
+            ? "A janela de revisão do Aspa está aberta. Envie ou feche a janela para continuar."
+            : "O login do Aspa está em andamento na janela aberta. Conclua o login para continuar.",
+        );
+      }
+      if (busy && method === "openDraft") throw new Error("Já existe uma janela de revisão aberta. Feche-a antes de abrir outra.");
       console.error(`[call] ${method}`);
       const startedAt = Date.now();
       try {
@@ -71,9 +97,11 @@ function currentNotificationSettings() {
 const lastNotified = new Map();
 const pending = new Map();
 
-function handleActivity(item) {
+function handleActivity(item, { isNew = false } = {}) {
   const settings = currentNotificationSettings();
-  if (settings.apenas_mensagens_de_cliente && !item.unread) return;
+  if (!passesFilters(settings, item)) return;
+  const announceNew = isNew && settings.nova_conversa;
+  if (settings.apenas_mensagens_de_cliente && !item.unread && !announceNew) return;
   if (!withinSchedule(settings)) {
     if (settings.fora_do_horario === "acumular") pending.set(item.contact, item);
     return;
@@ -81,7 +109,9 @@ function handleActivity(item) {
   const cooldown = settings.intervalo_minimo_minutos * 60000;
   if (cooldown && Date.now() - (lastNotified.get(item.contact) ?? 0) < cooldown) return;
   lastNotified.set(item.contact, Date.now());
-  notify({ kind: item.unread ? "message" : "activity", contact: item.contact, headline: item.unread ? "Nova mensagem" : "Nova atividade", time: item.time }, settings.canais);
+  const kind = announceNew ? "new_conversation" : item.unread ? "message" : "activity";
+  const headline = { new_conversation: "Nova conversa", message: "Nova mensagem", activity: "Nova atividade" }[kind];
+  notify({ kind, contact: item.contact, headline, time: item.time, agent: settings.mostrar_atendente ? item.agent ?? "sem atendente" : undefined }, settings.canais);
 }
 
 function flushPending() {

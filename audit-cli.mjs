@@ -9,7 +9,8 @@ for (const e of registros) {
     .filter(([, v]) => v !== undefined)
     .map(([k, v]) => `${k}=${typeof v === "object" ? JSON.stringify(v) : v}`)
     .join(" ");
-  console.log(`${when}  ${e.status === "ok" ? "OK  " : "ERRO"}  ${e.acao.padEnd(16)} ${String(e.contato ?? "").padEnd(24)} ${e.usuario}@${e.computador}`);
+  const status = e.status !== "ok" ? "ERRO          " : e.conferido_no_painel === false ? "NÃO CONFERIDO " : "OK            ";
+  console.log(`${when}  ${status}${e.acao.padEnd(19)} ${String(e.contato ?? "").padEnd(24)} ${e.usuario}@${e.computador}`);
   if (extra) console.log(`    ${extra.slice(0, 300)}`);
   if (e.erro) console.log(`    erro: ${e.erro}`);
 }

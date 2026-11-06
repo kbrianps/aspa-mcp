@@ -181,10 +181,15 @@ Abra o Claude Code em qualquer pasta e **peça em português**, como pediria a u
 
    O Claude consulta automaticamente o tom, as regras e os documentos da equipe.
 4. **Revisar**: peça ajustes se quiser ("mais curto", "explica melhor o passo 2").
-5. **Enviar**
-   > Pode enviar.
+5. **Enviar** (escolha um jeito)
+   - Pelo Claude:
+     > Pode enviar.
 
-   O Claude Code mostra uma **caixa de permissão** com o texto exato. Confira e aprove.
+     O Claude Code mostra uma **caixa de permissão** com o texto exato. Confira e aprove.
+   - Pelo próprio Aspa, revisando na tela:
+     > Abre no Aspa com esse rascunho para eu revisar.
+
+     Abre uma **janela do Aspa** já na conversa, com o texto na caixa. Você edita e clica em enviar no painel. Enquanto a janela estiver aberta, os avisos e as outras ações ficam pausados; feche a janela quando terminar. O registro de auditoria anota se você enviou.
 6. **Organizar**
    > Conclui a conversa do João.
 
@@ -193,7 +198,8 @@ Abra o Claude Code em qualquer pasta e **peça em português**, como pediria a u
 - **Nada é enviado sem a sua aprovação.** Enviar, transferir, adiar, concluir, reabrir e renomear sempre abrem uma caixa de permissão.
 - **Nunca marque "sempre permitir"** para essas ferramentas. Aprove uma por uma.
 - **Janela de 24h do WhatsApp**: depois de 24h sem mensagem do cliente, só dá para enviar **templates**. O Claude avisa e sugere um.
-- **Abrir uma conversa pode marcá-la como lida** no painel do Aspa.
+- **Abrir uma conversa pode marcá-la como lida** no painel do Aspa. Para evitar, peça "lê sem marcar como lida" (`keepUnread`).
+- **Conversa sem atendente** mostra "Assumir" no lugar da caixa de texto: peça "assume a conversa" antes de responder ou transferir.
 
 ---
 
@@ -243,10 +249,44 @@ A janela de 24h da conversa da Maria fechou. Lista os templates e envia o "Inici
 Envia para o João o PDF /home/eu/Downloads/manual.pdf com a legenda "Segue o manual".
 ```
 
+### Mais recursos do painel
+
+```text
+Lista só as conversas sem resposta, das mais antigas para as mais novas.
+```
+
+```text
+Procura na conversa da Maria onde ela falou de "boleto".
+```
+
+```text
+Responde citando a última mensagem do João: "Recebido, já estou verificando."
+```
+
+```text
+Mostra as estatísticas do Aspa de hoje.
+```
+
+```text
+Busca o contato com telefone 41 99999-9999.
+```
+
+```text
+Procura nos concluídos a conversa da ACME da semana passada.
+```
+
 ### Organizar
 
 ```text
-Assume a conversa do João (transfere para mim).
+Assume a conversa do João.
+```
+
+```text
+Marca a conversa do João como não lida.
+```
+
+```text
+Adia a conversa da Maria até segunda às 9h, com o comentário "aguardando boleto".
 ```
 
 ```text
@@ -376,6 +416,11 @@ notificacoes:
   fora_do_horario: acumular            # acumular: resumo quando o expediente começa; ignorar: descarta
   intervalo_minimo_minutos: 5          # no máximo 1 aviso a cada 5 min por contato
   sessao_expirada: true                # avisa quando precisa logar de novo
+  atendentes: []                       # vazio = qualquer atendente; ou nomes; "sem_atendente"
+  contatos_incluir: []                 # se preenchido, só avisa destes contatos
+  contatos_ignorar: []                 # nunca avisa destes contatos
+  nova_conversa: true                  # avisa quando surge uma conversa nova na lista
+  mostrar_atendente: true              # mostra o atendente no aviso
 ```
 
 | Campo | Opções | Padrão |
@@ -389,6 +434,22 @@ notificacoes:
 | `fora_do_horario` | `acumular`, `ignorar` | `acumular` |
 | `intervalo_minimo_minutos` | número | `0` |
 | `sessao_expirada` | `true` / `false` | `true` |
+| `atendentes` | nomes (parte do nome vale), `sem_atendente` | qualquer |
+| `contatos_incluir` | partes de nomes de contatos | todos |
+| `contatos_ignorar` | partes de nomes de contatos | nenhum |
+| `nova_conversa` | `true` / `false` | `true` |
+| `mostrar_atendente` | `true` / `false` | `true` |
+
+Exemplos prontos (cole no `pessoal.yaml`):
+
+| Quero ser avisado de... | Configuração |
+| --- | --- |
+| Toda mensagem nova, de qualquer atendente | `abas: [todos]` |
+| Só as minhas conversas | `abas: [meus]` |
+| As minhas e as que ninguém pegou | `abas: [todos]` e `atendentes: [Seu Nome, sem_atendente]` |
+| Só as do Lucas | `abas: [todos]` e `atendentes: [Lucas]` |
+| Tudo, menos um contato de testes | `contatos_ignorar: [Teste]` |
+| Só de um cliente importante | `abas: [todos]` e `contatos_incluir: [ACME]` |
 
 ### 5.4 Conferir a configuração
 
@@ -640,16 +701,22 @@ systemctl --user disable --now aspa-mcp  # parar e desligar
 - Baixa imagens, PDFs e áudios; transcreve áudios localmente (opcional).
 - Segue o tom, a assinatura, as regras e os exemplos da equipe, e consulta os documentos da empresa.
 - Envia texto (na janela de 24h), templates (com variáveis) e arquivos.
-- Transfere ou assume, adia (1 hora, 1 dia, 1 semana), conclui e reabre conversas; renomeia contatos.
-- Avisa no Ubuntu, Slack ou celular, com abas, dias, horários e canais configuráveis.
+- Assume, transfere, adia (1 hora, 1 dia, 1 semana ou até data e hora), conclui, reabre e marca como não lida.
+- Responde citando uma mensagem e abre o rascunho no próprio Aspa para você revisar e enviar.
+- Lista com filtros do painel (sem usuário, sem resposta, em automação, com contexto, sessão ativa/inativa) e ordenação.
+- Busca dentro de uma conversa, nos concluídos (com paginação) e nos contatos; cria contatos.
+- Mostra as estatísticas do painel e as Respostas Rápidas da equipe.
+- Liga e desliga "Bloquear Promoções" do contato; renomeia contatos.
+- Avisa no Ubuntu, Slack ou celular, com abas, atendentes, contatos, dias, horários e canais configuráveis.
 
 ### Não faz
 
 - **Não envia nada sozinho**: toda ação pede aprovação no Claude Code.
 - Não transcreve na nuvem; sem a instalação opcional, não transcreve.
-- Não aplica jornadas nem etiquetas do Aspa.
-- Não edita e-mail ou empresa do contato, não cria contatos e não faz ações em massa.
-- Não adia para uma data específica.
+- Não aplica jornadas, etiquetas nem assuntos do Aspa (a conta não tem nenhum configurado).
+- Não edita e-mail ou empresa do contato, não bloqueia o número e não faz ações em massa.
+- Não muda o seu status de atendente (online/ausente) nem grava áudio.
+- Não assiste vídeos: só baixa o arquivo.
 - Não coloca o texto das mensagens nas notificações.
 - Não lida com a sua senha.
 - Não burla proteções do Aspa (App Check, reCAPTCHA) nem usa APIs privadas: opera o próprio site do Aspa, como você faria.
@@ -669,11 +736,15 @@ Toda ação que muda algo no Aspa feita pelo aspa-mcp fica registrada, **inclusi
 | Enviar template | nome do template e variáveis |
 | Enviar anexo | nome, tamanho e SHA-256 do arquivo, legenda |
 | Transferir / assumir | destino e comentário |
-| Adiar | duração |
-| Concluir / reabrir | contato |
+| Adiar / adiar até | duração ou data e hora, comentário |
+| Concluir / reabrir / marcar como não lida | contato |
+| Responder citando | mensagem citada e texto |
+| Abrir rascunho no Aspa / rascunho fechado | texto, e se você enviou pela janela |
+| Criar contato | nome e telefone |
+| Bloquear promoções | ligado ou desligado |
 | Renomear contato | novo nome |
 
-Cada registro tem também: data e hora, duração, usuário e computador, contato, status (`ok` ou `erro`), se o resultado foi conferido no painel e a mensagem de erro, quando houver.
+Cada registro tem também: data e hora, duração, usuário e computador, contato, status (`ok` ou `erro`), se o resultado foi conferido no painel e a mensagem de erro, quando houver. No terminal, ações que rodaram mas não se confirmaram no painel aparecem como **NÃO CONFERIDO**.
 
 - **Onde fica**: `~/.local/share/aspa-mcp/auditoria.jsonl` (uma linha JSON por ação, só você consegue ler; o arquivo só cresce, nada é apagado).
 - **Ver no terminal**:
@@ -732,16 +803,28 @@ Cada registro tem também: data e hora, duração, usuário e computador, contat
 | `aspa_search_knowledge` | leitura | Busca nos documentos (sem diferenciar acentos) |
 | `aspa_read_knowledge` | leitura | Lê um documento |
 | `aspa_login` | sessão | Janela para você entrar no Aspa (até 5 min) |
-| `aspa_list_conversations` | leitura | Lista conversas (`tab`: `todos`, `meus`, `pendentes`) |
-| `aspa_read_conversation` | leitura | Mensagens por `index` ou `contact`; `loadMoreTimes` carrega histórico |
+| `aspa_list_conversations` | leitura | Lista conversas (`tab`; `filters`: sem_usuario, sem_resposta, em_automacao, com_contexto, sessao_ativa, sem_sessao_ativa; `order`: recentes, antigas) |
+| `aspa_read_conversation` | leitura | Mensagens por `index` ou `contact`; `loadMoreTimes` carrega histórico; `keepUnread` mantém não lida |
+| `aspa_search_conversation` | leitura | Busca palavras dentro de uma conversa |
+| `aspa_statistics` | leitura | Estatísticas do painel (hoje, ativos, sem resposta, adiados, por atendente) |
+| `aspa_quick_replies` | leitura | Respostas Rápidas cadastradas |
+| `aspa_list_concluded` | leitura | Concluídos, com busca por nome e paginação |
+| `aspa_search_contact` | leitura | Busca contato por nome ou telefone |
 | `aspa_download_attachments` | leitura | Salva anexos em `~/.cache/aspa-mcp/attachments/<contato>/` |
 | `aspa_transcribe_audio` | leitura, opcional | Transcreve áudios localmente |
 | `aspa_list_templates` | leitura | Templates aprovados do WhatsApp |
 | `aspa_send_message` | escrita | Texto livre (janela de 24h) |
 | `aspa_send_template` | escrita | Template com `variables` |
 | `aspa_send_attachment` | escrita | Arquivo local (até 16 MB) com legenda |
-| `aspa_transfer` | escrita, não testada ao vivo | Transfere para atendente ou time |
+| `aspa_open_draft` | janela | Abre o Aspa com o rascunho na caixa para você revisar e enviar |
+| `aspa_reply_to_message` | escrita | Responde citando uma mensagem (`messageIndex`) |
+| `aspa_assume` | escrita | Assume uma conversa sem atendente |
+| `aspa_transfer` | escrita, não testada ao vivo | Transfere para outro atendente ou time (o atual não aparece na lista) |
+| `aspa_mark_unread` | escrita | Marca como não lida |
 | `aspa_snooze` | escrita | Adia `1h`, `1d` ou `1w` e confere |
+| `aspa_snooze_until` | escrita | Adia até data e hora (`YYYY-MM-DD`, `HH:MM` de 15 em 15 min), com comentário |
+| `aspa_create_contact` | escrita, não testada ao vivo | Cria contato (nome e telefone) |
+| `aspa_block_promotions` | escrita | Liga ou desliga "Bloquear Promoções" |
 | `aspa_conclude` | escrita | Conclui e confere |
 | `aspa_reopen` | escrita | Reabre (concluídas na última semana) e confere |
 | `aspa_rename_contact` | escrita | Renomeia e confere o nome salvo |
@@ -811,10 +894,16 @@ Não. O aspa-mcp tem o próprio Chrome invisível. O `/chrome` só serve para o 
 - [x] Notificações no Ubuntu, Slack (direto para a pessoa) e celular
 - [x] Configuração da equipe e pessoal: tom, regras, exemplos, documentos, horários e canais
 - [x] Registro de auditoria de toda ação feita no Aspa
-- [ ] Testar ao vivo transferência e anexos de vídeo
+- [x] Janela de revisão do rascunho no próprio Aspa
+- [x] Filtros e ordenação da lista, busca na conversa, nos concluídos e nos contatos
+- [x] Marcar como não lida, ler sem marcar, responder citando, adiar até data e hora
+- [x] Estatísticas e Respostas Rápidas
+- [x] Notificações por atendente, contato e conversa nova
+- [ ] Testar ao vivo transferência para outra pessoa e criação de contato
 - [ ] Transcrição na GPU (CUDA)
-- [ ] Usar as "Respostas Rápidas" do Aspa nos rascunhos
-- [ ] Filtro "Sem resposta" na listagem
+- [ ] Usar as Respostas Rápidas automaticamente nos rascunhos (a conta ainda não tem nenhuma)
+- [ ] Editar e-mail e empresa do contato; status do atendente
+- [ ] Testar com outros clientes de MCP (Codex, Antigravity, Grok, opencode, DeepSeek, Z Code)
 - [ ] Jornadas e etiquetas, quando configuradas na conta
 - [ ] API oficial da Aspa no lugar da automação do painel, quando disponível
 - [ ] Webhook de mensagens: dispensar o navegador e oferecer conector para o claude.ai

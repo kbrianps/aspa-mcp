@@ -9,10 +9,17 @@ export const WRITE_METHODS = new Set([
   "sendTemplate",
   "sendAttachment",
   "transfer",
+  "assume",
   "snooze",
   "conclude",
   "reopen",
   "renameContact",
+  "openDraft",
+  "markUnread",
+  "replyToMessage",
+  "snoozeUntil",
+  "createContact",
+  "setPromotionsBlocked",
 ]);
 
 const ACTION_LABELS = {
@@ -20,10 +27,18 @@ const ACTION_LABELS = {
   sendTemplate: "enviar_template",
   sendAttachment: "enviar_anexo",
   transfer: "transferir",
+  assume: "assumir",
   snooze: "adiar",
   conclude: "concluir",
   reopen: "reabrir",
   renameContact: "renomear_contato",
+  openDraft: "abrir_rascunho",
+  draftClosed: "rascunho_fechado",
+  markUnread: "marcar_nao_lida",
+  replyToMessage: "responder_citando",
+  snoozeUntil: "adiar_ate",
+  createContact: "criar_contato",
+  setPromotionsBlocked: "bloquear_promocoes",
 };
 
 export const DEFAULT_AUDIT_FILE = join(homedir(), ".local", "share", "aspa-mcp", "auditoria.jsonl");
@@ -57,6 +72,16 @@ function details(method, args, includeText) {
       return { duracao: args.duration };
     case "renameContact":
       return { novo_nome: args.name };
+    case "openDraft":
+      return { texto: text(args.text) };
+    case "replyToMessage":
+      return { mensagem_citada: args.messageIndex, texto: text(args.text) };
+    case "snoozeUntil":
+      return { ate: `${args.date} ${args.time}`, comentario: text(args.comment) };
+    case "createContact":
+      return { nome: args.name, telefone: includeText ? args.phone : "[oculto]" };
+    case "setPromotionsBlocked":
+      return { bloquear: args.blocked };
     default:
       return {};
   }
@@ -73,7 +98,7 @@ export function recordAudit({ method, args, status, result, error, startedAt }) 
     contato: result?.contact ?? args.contact ?? (Number.isInteger(args.index) ? `#${args.index}` : undefined),
     detalhes: details(method, args, includeText),
     status,
-    conferido_no_painel: result ? (result.verified ?? result.sent ?? result.renamed ?? result.reopened ?? result.transferred ?? undefined) : undefined,
+    conferido_no_painel: result ? (result.verified ?? result.sent ?? result.renamed ?? result.reopened ?? result.transferred ?? result.assumed ?? result.opened ?? result.sent_by_user ?? result.marked_unread ?? result.created ?? undefined) : undefined,
     resultado: result ? { ...result, contact: undefined } : undefined,
     erro: error,
   };

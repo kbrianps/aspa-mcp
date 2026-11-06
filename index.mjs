@@ -48,14 +48,25 @@ const tools = [
     "aspa_list_conversations",
     "listConversations",
     "List open Aspa Chat (WhatsApp) support conversations: index, contact, assigned agent, last activity time and unread flag.",
-    { tab: z.enum(["todos", "meus", "pendentes"]).optional().describe("Panel filter tab. Defaults to todos.") },
+    {
+      tab: z.enum(["todos", "meus", "pendentes"]).optional().describe("Panel filter tab. Defaults to todos."),
+      filters: z
+        .array(z.enum(["sem_usuario", "sem_resposta", "em_automacao", "com_contexto", "sessao_ativa", "sem_sessao_ativa"]))
+        .optional()
+        .describe("Panel list filters, applied only for this listing and removed afterwards."),
+      order: z.enum(["recentes", "antigas"]).optional(),
+    },
     READ,
   ],
   [
     "aspa_read_conversation",
     "readConversation",
     "Return the messages of one conversation in order (inbound = customer, outbound = our team), the 24h response window and attachment metadata. Opening a conversation may mark it as read.",
-    { ...target, loadMoreTimes: z.number().int().min(0).max(10).optional().describe("How many times to load older history.") },
+    {
+      ...target,
+      loadMoreTimes: z.number().int().min(0).max(10).optional().describe("How many times to load older history."),
+      keepUnread: z.boolean().optional().describe("Mark the conversation as unread again after reading, if it was unread."),
+    },
     READ,
   ],
   [
@@ -78,6 +89,29 @@ const tools = [
       loadMoreTimes: z.number().int().min(0).max(10).optional(),
       messageIndexes: z.array(z.number().int().min(0)).optional().describe("Item indexes from aspa_read_conversation. Omit for all audio."),
     },
+    READ,
+  ],
+  [
+    "aspa_search_conversation",
+    "searchConversation",
+    "Search words inside one conversation (accent and case insensitive), loading older history first.",
+    { ...target, query: z.string().min(1), loadMoreTimes: z.number().int().min(0).max(10).optional() },
+    READ,
+  ],
+  ["aspa_statistics", "statistics", "Aspa dashboard: conversations today, active, concluded, without reply, snoozed, and per-agent counts.", {}, READ],
+  ["aspa_quick_replies", "quickReplies", "List the team's quick replies (Respostas Rápidas) registered in Aspa, to reuse their wording in drafts.", {}, READ],
+  [
+    "aspa_list_concluded",
+    "listConcluded",
+    "List concluded conversations (last week by default), with optional name search and pagination.",
+    { query: z.string().optional(), pageNumber: z.number().int().min(1).max(50).optional() },
+    READ,
+  ],
+  [
+    "aspa_search_contact",
+    "searchContact",
+    "Search Aspa contacts by name or phone, including contacts without an open conversation.",
+    { query: z.string().min(1) },
     READ,
   ],
   [
@@ -117,6 +151,60 @@ const tools = [
     "transfer",
     "Transfer (or assign) a conversation to an agent or team. Transferring to yourself assumes it." + APPROVAL,
     { ...target, to: z.string().min(1).describe("Agent or team name as shown in Aspa."), comment: z.string().optional() },
+    WRITE,
+  ],
+  [
+    "aspa_open_draft",
+    "openDraft",
+    "Open a visible Aspa window on the conversation with the reply box pre-filled with the draft, so the user reviews, edits and sends it themselves in the official panel. Returns as soon as the window is open; the user closes it when done (default limit 20 minutes). While it is open, other Aspa actions and notifications are paused. Whether the user sent it is recorded in the audit log. Use this instead of aspa_send_message when the user wants to review in Aspa.",
+    { ...target, text: z.string().min(1).describe("Draft text in pt-BR."), timeoutMinutes: z.number().int().min(1).max(60).optional() },
+    { readOnlyHint: false, openWorldHint: true },
+  ],
+  [
+    "aspa_reply_to_message",
+    "replyToMessage",
+    "Reply quoting a specific message (WhatsApp reply). messageIndex comes from aspa_read_conversation." + APPROVAL,
+    {
+      ...target,
+      messageIndex: z.number().int().min(0),
+      text: z.string().min(1).describe("Exact reply text in pt-BR."),
+      loadMoreTimes: z.number().int().min(0).max(10).optional(),
+    },
+    WRITE,
+  ],
+  [
+    "aspa_mark_unread",
+    "markUnread",
+    "Mark a conversation as unread in the Aspa panel." + APPROVAL,
+    target,
+    WRITE,
+  ],
+  [
+    "aspa_snooze_until",
+    "snoozeUntil",
+    "Snooze a conversation until a specific date and time (Brasília time, 15-minute steps), with an optional internal comment." + APPROVAL,
+    { ...target, date: z.string().describe("YYYY-MM-DD"), time: z.string().describe("HH:MM, minutes 00/15/30/45"), comment: z.string().optional() },
+    WRITE,
+  ],
+  [
+    "aspa_create_contact",
+    "createContact",
+    "Create a new contact in Aspa (name and phone with country and area code, e.g. 5541999999999)." + APPROVAL,
+    { name: z.string().min(1), phone: z.string().min(8) },
+    WRITE,
+  ],
+  [
+    "aspa_block_promotions",
+    "setPromotionsBlocked",
+    "Turn 'Bloquear Promoções' on or off for a contact." + APPROVAL,
+    { ...target, blocked: z.boolean() },
+    WRITE,
+  ],
+  [
+    "aspa_assume",
+    "assume",
+    "Assume (take) a conversation that has no agent yet, by clicking 'Assumir' in the Aspa panel. Required before replying or transferring an unassigned conversation." + APPROVAL,
+    target,
     WRITE,
   ],
   [
@@ -187,7 +275,7 @@ server.registerTool(
       contact: z.string().optional().describe("Filter by part of the contact name."),
       since: z.string().optional().describe("ISO date or datetime, e.g. 2026-11-05."),
       action: z
-        .enum(["enviar_mensagem", "enviar_template", "enviar_anexo", "transferir", "adiar", "concluir", "reabrir", "renomear_contato"])
+        .enum(["enviar_mensagem", "enviar_template", "enviar_anexo", "transferir", "assumir", "abrir_rascunho", "rascunho_fechado", "adiar", "adiar_ate", "marcar_nao_lida", "responder_citando", "criar_contato", "bloquear_promocoes", "concluir", "reabrir", "renomear_contato"])
         .optional(),
     },
     annotations: READ,

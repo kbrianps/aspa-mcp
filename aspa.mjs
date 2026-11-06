@@ -21,6 +21,9 @@ let workPage = null;
 let watchPage = null;
 let visible = false;
 let queue = Promise.resolve();
+let interactive = null;
+
+export const interactiveMode = () => interactive;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -108,6 +111,7 @@ async function ensureList(page, tab) {
   if (!onList) await page.goto(LIST_URL, { waitUntil: "domcontentloaded" });
   if ((await waitForSession(page, 30000)) === "logged_out") throw new Error("Aspa session expired or missing. Call aspa_login.");
   await page.waitForFunction(() => document.querySelectorAll("button.list-otps-btn").length > 0, { timeout: 60000 }).catch(() => null);
+  if ((await activeFilterChips(page)).length) await clearListFilters(page);
   const clicked = await selectTab(page, tab ?? "todos");
   if (tab && !clicked) throw new Error(`Filter tab "${tab}" not found in the Aspa panel. Another list filter may be active; clear it in the panel.`);
 }
@@ -143,7 +147,23 @@ async function readList(page) {
         .map((line) => line.trim())
         .filter((line) => line && !icon.test(line));
       const unread = !!button.querySelector("mat-icon.mat-warn")?.innerText.trim();
-      return { index, contact: lines[0] ?? "", time, unread, details: lines.slice(1).filter((line) => line !== time) };
+      const captions = [...button.querySelectorAll(".btn-main-txt .mat-caption, .btn-main-txt small, .btn-main-txt span")]
+        .map((e) =>
+          e.innerText
+            .split("\n")
+            .map((l) => l.trim())
+            .filter((l) => l && !icon.test(l))
+            .join(" ")
+            .replace(/^[a-z_]+ /, ""),
+        )
+        .filter(Boolean);
+      const agentCaption = button.querySelector(".btn-main-txt .mat-caption");
+      const agent = agentCaption?.querySelector("mat-icon")?.innerText.trim() === "support_agent"
+        ? agentCaption.innerText.replace("support_agent", "").trim() || null
+        : null;
+      const details = lines.slice(1).filter((line) => line !== time);
+      const unassigned = !agent || details.some((line) => /sem usu[aá]rio/i.test(line));
+      return { index, contact: lines[0] ?? "", time, unread, agent: unassigned ? null : agent, details, captions };
     });
   }, ICON_LINE.source);
 }
@@ -255,7 +275,16 @@ async function readFeed(page) {
       contact: header?.querySelector("h2")?.innerText.trim() ?? "",
       responseWindow: header?.querySelector(".mat-caption")?.innerText.trim() || undefined,
       url: location.href,
-      items: items.filter((item) => item.text || item.attachments).map((item, index) => ({ index, ...item })),
+      items: (() => {
+        const elements = [...document.querySelectorAll(".wrp-feed-item")];
+        const kept = [];
+        items.forEach((item, position) => {
+          if (!(item.text || item.attachments)) return;
+          elements[position]?.setAttribute("data-aspa-item", String(kept.length));
+          kept.push({ index: kept.length, ...item });
+        });
+        return kept;
+      })(),
     };
   }, ICON_LINE.source);
 }
@@ -390,6 +419,7 @@ async function waitSentIncrease(page, before) {
 
 export const login = () =>
   exclusive(async () => {
+    interactive = "login";
     await closeBrowser();
     await ensureBrowser(true);
     const page = workPage;
@@ -406,32 +436,120 @@ export const login = () =>
       }
       throw new Error("Login not completed within 5 minutes.");
     } finally {
+      interactive = null;
       await closeBrowser();
     }
   });
 
-export const listConversations = ({ tab } = {}) =>
+const LIST_FILTERS = {
+  sem_usuario: "Sem usuário",
+  sem_resposta: "Sem resposta",
+  em_automacao: "Em automação",
+  com_contexto: "Com contexto",
+  sessao_ativa: "Sessão ativa",
+  sem_sessao_ativa: "Sem sessão ativa",
+};
+const LIST_ORDER = { recentes: "Recentes primeiro", antigas: "Antigas primeiro" };
+
+async function activeFilterChips(page) {
+  return page.evaluate(() =>
+    [...document.querySelectorAll("button")]
+      .filter((b) => {
+        const r = b.getBoundingClientRect();
+        const text = b.innerText.trim();
+        return b.offsetParent && r.x < 400 && r.y > 90 && r.y < 200 && /\(\d+\)/.test(text) && !/^(Todos|Meus|Pendentes) \(/.test(text);
+      })
+      .map((b) => b.innerText.trim()),
+  );
+}
+
+async function clearListFilters(page) {
+  for (let i = 0; i < 6; i++) {
+    const chips = await activeFilterChips(page);
+    if (!chips.length) return true;
+    await page.evaluate((label) => {
+      const chip = [...document.querySelectorAll("button")].find((b) => b.innerText.trim() === label);
+      chip?.click();
+    }, chips[0]);
+    await sleep(1200);
+  }
+  return !(await activeFilterChips(page)).length;
+}
+
+async function clickListMenuItem(page, label) {
+  const opened = await page.evaluate(() => {
+    const button = [...document.querySelectorAll("button")].find((b) => b.innerText.trim() === "filter_alt" && b.getBoundingClientRect().x < 400);
+    if (!button) return false;
+    button.click();
+    return true;
+  });
+  if (!opened) throw new Error("List filter menu not found.");
+  await sleep(600);
+  const clicked = await page.evaluate((text) => {
+    const item = [...document.querySelectorAll(".cdk-overlay-container :is(button, [role=menuitem])")].find(
+      (b) => b.innerText.trim().replace(/^[a-z_]+\s+/, "") === text,
+    );
+    if (!item) return false;
+    item.click();
+    return true;
+  }, label);
+  if (!clicked) {
+    await closeOverlays(page);
+    throw new Error(`List option "${label}" not found.`);
+  }
+  await sleep(1500);
+  if (await page.$(".cdk-overlay-backdrop")) await closeOverlays(page);
+}
+
+export const listConversations = ({ tab, filters = [], order } = {}) =>
   exclusive(async () => {
     const page = await getWorkPage();
+    await page.goto(LIST_URL, { waitUntil: "domcontentloaded" });
     await ensureList(page, tab);
-    const tabs = await page.evaluate(() =>
-      [...document.querySelectorAll("button")].map((b) => b.innerText.trim()).filter((t) => /^(Todos|Meus|Pendentes) \(\d+\)$/.test(t)),
-    );
-    return { tabs, conversations: await readList(page) };
+    const baseline = (await readList(page)).length;
+    const applied = [];
+    try {
+      for (const filter of filters) {
+        const label = LIST_FILTERS[filter];
+        if (!label) throw new Error(`Unknown filter "${filter}". Use ${Object.keys(LIST_FILTERS).join(", ")}.`);
+        await clickListMenuItem(page, label);
+        applied.push(label);
+      }
+      if (order && order !== "recentes") {
+        if (!LIST_ORDER[order]) throw new Error('Unknown order. Use "recentes" or "antigas".');
+        await clickListMenuItem(page, LIST_ORDER[order]);
+      }
+      const tabs = await page.evaluate(() =>
+        [...document.querySelectorAll("button")].map((b) => b.innerText.trim()).filter((t) => /^(Todos|Meus|Pendentes) \(\d+\)$/.test(t)),
+      );
+      return { tabs, filters: applied.length ? applied : undefined, order: order ? LIST_ORDER[order] : undefined, conversations: await readList(page) };
+    } finally {
+      if (order && order !== "recentes") await clickListMenuItem(page, LIST_ORDER.recentes).catch(() => null);
+      if (applied.length && !(await clearListFilters(page))) console.error("[list] could not remove list filters");
+      const restored = (await readList(page)).length;
+      if (applied.length && restored !== baseline) console.error(`[list] list size changed after removing filters (${baseline} -> ${restored})`);
+    }
   });
 
-export const readConversation = ({ index, contact, loadMoreTimes = 0 } = {}) =>
+export const readConversation = ({ index, contact, loadMoreTimes = 0, keepUnread = false } = {}) =>
   exclusive(async () => {
     const page = await getWorkPage();
-    await openConversation(page, { index, contact });
+    const match = await openConversation(page, { index, contact });
     if (loadMoreTimes > 0) await loadMore(page, loadMoreTimes);
-    return readFeed(page);
+    const feed = await readFeed(page);
+    if (keepUnread && match.unread) feed.kept_unread = await markUnreadInList(page, match.contact).catch(() => false);
+    return feed;
   });
 
 export const sendMessage = ({ index, contact, text }) =>
   exclusive(async () => {
     const page = await getWorkPage();
     const match = await openConversation(page, { index, contact });
+    await fillAndSend(page, text);
+    return { sent: true, contact: match.contact };
+  });
+
+async function fillAndSend(page, text) {
     const before = await countSent(page);
     const state = await page.evaluate((value) => {
       const box = document.querySelector("textarea.cdk-textarea-autosize");
@@ -467,8 +585,7 @@ export const sendMessage = ({ index, contact, text }) =>
       throw new Error("Send button not available. The 24h window may be closed; use aspa_send_template.");
     }
     await waitSentIncrease(page, before);
-    return { sent: true, contact: match.contact };
-  });
+}
 
 export const listTemplates = ({ index, contact }) =>
   exclusive(async () => {
@@ -580,14 +697,58 @@ export const sendAttachment = ({ index, contact, path, caption }) =>
     return { sent: true, contact: match.contact, file: basename(path) };
   });
 
+async function assumeButton(page) {
+  return page.evaluate(() =>
+    [...document.querySelectorAll("button")].some((b) => b.innerText.trim() === "Assumir" && b.offsetParent && !b.closest(".cdk-overlay-container")),
+  );
+}
+
+export const assume = ({ index, contact }) =>
+  exclusive(async () => {
+    const page = await getWorkPage();
+    const match = await openConversation(page, { index, contact });
+    if (!(await assumeButton(page))) {
+      const hasBox = await page.evaluate(() => !!document.querySelector("textarea.cdk-textarea-autosize"));
+      return { assumed: false, contact: match.contact, verified: false, note: hasBox ? "Conversation already has an agent." : "Assume button not found." };
+    }
+    await page.evaluate(() =>
+      [...document.querySelectorAll("button")].find((b) => b.innerText.trim() === "Assumir" && b.offsetParent && !b.closest(".cdk-overlay-container")).click(),
+    );
+    await sleep(1500);
+    if (await dialogOpen(page)) await clickOverlay(page, "button", "^(Assumir|Confirmar|Sim)$");
+    const verified = await page
+      .waitForFunction(() => !!document.querySelector("textarea.cdk-textarea-autosize"), { timeout: 15000 })
+      .then(() => true)
+      .catch(() => false);
+    return { assumed: verified, contact: match.contact, verified };
+  });
+
 export const transfer = ({ index, contact, to, comment }) =>
   exclusive(async () => {
     const page = await getWorkPage();
     const match = await openConversation(page, { index, contact });
+    if (await assumeButton(page)) {
+      throw new Error("This conversation has no agent yet. Use aspa_assume to take it before transferring.");
+    }
     await clickHeaderIcon(page, "swap_horiz");
-    const input = await page.waitForSelector(".cdk-overlay-container :is(mat-dialog-container, .mat-mdc-dialog-container) input", { timeout: 10000 });
+    const input = await page
+      .waitForSelector(".cdk-overlay-container :is(mat-dialog-container, .mat-mdc-dialog-container) input", { timeout: 10000 })
+      .catch(() => null);
+    if (!input) throw new Error("The transfer dialog did not open in the Aspa panel.");
     await input.click();
-    await input.type(to);
+    await page.waitForSelector(".cdk-overlay-container mat-option", { timeout: 8000 }).catch(() => null);
+    const available = await overlayTexts(page, "mat-option");
+    if (!available.length) {
+      await input.type(to);
+      const visible = await page
+        .waitForSelector(".cdk-overlay-container mat-option", { timeout: 5000 })
+        .then(() => true)
+        .catch(() => false);
+      if (!visible) {
+        await closeOverlays(page);
+        throw new Error(`No transfer destination matches "${to}".`);
+      }
+    }
     const chosen = await chooseOption(page, to, "Destination");
     if (comment) {
       const field = await page.$(".cdk-overlay-container :is(mat-dialog-container, .mat-mdc-dialog-container) textarea");
@@ -838,8 +999,10 @@ export function startWatcher({ intervalMs, tabs = ["meus"], onActivity, onSessio
   let known = null;
   let lastReload = 0;
   let sessionLost = false;
-  const tick = () =>
-    exclusive(async () => {
+  const tick = () => {
+    if (interactive) return Promise.resolve();
+    return exclusive(async () => {
+      if (interactive) return;
       const page = await getWatchPage();
       if (Date.now() - lastReload > WATCH_RELOAD_MS || page.url() !== LIST_URL) {
         await page.goto(LIST_URL, { waitUntil: "domcontentloaded" });
@@ -866,14 +1029,390 @@ export function startWatcher({ intervalMs, tabs = ["meus"], onActivity, onSessio
       if (known) {
         for (const item of next.values()) {
           const previous = known.get(item.contact);
-          if (!previous || previous.time !== item.time || (item.unread && !previous.unread)) onActivity(item);
+          if (!previous || previous.time !== item.time || (item.unread && !previous.unread)) onActivity(item, { isNew: !previous });
         }
       }
       known = next;
     });
+  };
   const run = () => tick().catch((error) => console.error(`[watch] ${error.message}`));
   run();
   return setInterval(run, intervalMs);
+}
+
+
+async function markUnreadInList(page, contactName) {
+  await page.goto(LIST_URL, { waitUntil: "domcontentloaded" });
+  await ensureList(page, null);
+  const item = (await readList(page)).find((i) => i.contact === contactName);
+  if (!item) throw new Error(`Conversation "${contactName}" is not in the open list.`);
+  const handle = (await page.$$("button.list-otps-btn"))[item.index];
+  const box = await handle.boundingBox();
+  await page.mouse.click(box.x + 60, box.y + 18, { button: "right" });
+  await sleep(700);
+  if (!(await clickOverlay(page, "button, [role=menuitem]", "Marcar como não lida$"))) {
+    await closeOverlays(page);
+    throw new Error("Mark as unread option not found.");
+  }
+  for (let i = 0; i < 8; i++) {
+    await sleep(800);
+    if ((await readList(page)).find((x) => x.contact === contactName)?.unread) return true;
+  }
+  return false;
+}
+
+export const markUnread = ({ index, contact }) =>
+  exclusive(async () => {
+    const page = await getWorkPage();
+    await page.goto(LIST_URL, { waitUntil: "domcontentloaded" });
+    await ensureList(page, null);
+    const match = pickConversation(await readList(page), { index, contact });
+    if (!match) throw new Error("Conversation not found in the current list.");
+    const verified = await markUnreadInList(page, match.contact);
+    return { marked_unread: verified, contact: match.contact, verified };
+  });
+
+const normalizeText = (value) =>
+  String(value ?? "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase();
+
+export const searchConversation = ({ index, contact, query, loadMoreTimes = 3 }) =>
+  exclusive(async () => {
+    const page = await getWorkPage();
+    await openConversation(page, { index, contact });
+    if (loadMoreTimes > 0) await loadMore(page, loadMoreTimes);
+    const feed = await readFeed(page);
+    const terms = normalizeText(query).split(/\s+/).filter(Boolean);
+    const matches = feed.items.filter((item) => terms.every((term) => normalizeText(item.text).includes(term)));
+    return { contact: feed.contact, query, searched_items: feed.items.length, matches };
+  });
+
+export const replyToMessage = ({ index, contact, messageIndex, text, loadMoreTimes = 0 }) =>
+  exclusive(async () => {
+    const page = await getWorkPage();
+    const match = await openConversation(page, { index, contact });
+    if (loadMoreTimes > 0) await loadMore(page, loadMoreTimes);
+    const feed = await readFeed(page);
+    const target = feed.items.find((item) => item.index === messageIndex);
+    if (!target || target.type !== "message") throw new Error(`Message ${messageIndex} not found. Read the conversation first and use its index.`);
+    const quoted = await page.evaluate((i) => {
+      const icon = [...document.querySelectorAll(`[data-aspa-item="${i}"] mat-icon`)].find((e) => e.innerText.trim() === "reply");
+      if (!icon) return false;
+      icon.click();
+      return true;
+    }, messageIndex);
+    if (!quoted) throw new Error("Reply control not found on that message.");
+    await sleep(800);
+    await fillAndSend(page, text);
+    return { sent: true, contact: match.contact, replied_to: { index: messageIndex, text: target.text?.slice(0, 120) } };
+  });
+
+async function pickCalendarDate(page, isoDate) {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  await page.evaluate(() => document.querySelector(".cdk-overlay-container input[readonly]")?.click());
+  await page.waitForSelector(".cdk-overlay-container mat-calendar, .mat-datepicker-content", { timeout: 8000 });
+  for (let i = 0; i < 24; i++) {
+    const label = await page.evaluate(() => document.querySelector(".mat-calendar-period-button")?.innerText.trim() ?? "");
+    const shown = label.match(/(\d{4})/)?.[1];
+    const months = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+    const shownMonth = months.findIndex((m) => normalizeText(label).startsWith(m)) + 1;
+    if (!shown || !shownMonth) throw new Error(`Unexpected calendar header "${label}".`);
+    const diff = (year - Number(shown)) * 12 + (month - shownMonth);
+    if (diff === 0) break;
+    await page.click(diff > 0 ? ".mat-calendar-next-button" : ".mat-calendar-previous-button");
+    await sleep(300);
+  }
+  const clicked = await page.evaluate((d) => {
+    const cell = [...document.querySelectorAll(".mat-calendar-body-cell")].find(
+      (c) => c.innerText.trim() === String(d) && !c.classList.contains("mat-calendar-body-disabled") && c.getAttribute("aria-disabled") !== "true",
+    );
+    if (!cell) return false;
+    cell.click();
+    return true;
+  }, day);
+  if (!clicked) throw new Error(`Date ${isoDate} is not available in the calendar (past dates are disabled).`);
+  await sleep(600);
+}
+
+export const snoozeUntil = ({ index, contact, date, time, comment }) =>
+  exclusive(async () => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date ?? "")) throw new Error("date must be YYYY-MM-DD.");
+    if (!/^([01]\d|2[0-3]):(00|15|30|45)$/.test(time ?? "")) throw new Error("time must be HH:MM in 15-minute steps (e.g. 14:30).");
+    const page = await getWorkPage();
+    const match = await openConversation(page, { index, contact });
+    await clickHeaderIcon(page, "alarm");
+    if (!(await clickOverlay(page, "button, [role=menuitem]", "Escolher data"))) {
+      await closeOverlays(page);
+      throw new Error("Custom date option not found in the snooze menu.");
+    }
+    await page.waitForSelector(".cdk-overlay-container :is(mat-dialog-container, .mat-mdc-dialog-container)", { timeout: 8000 });
+    try {
+      await pickCalendarDate(page, date);
+      await page.evaluate(() => document.querySelectorAll(".cdk-overlay-container :is(mat-dialog-container, .mat-mdc-dialog-container) mat-select")[0]?.click());
+      await page.waitForSelector(".cdk-overlay-container mat-option", { timeout: 5000 });
+      const pickedTime = await page.evaluate((t) => {
+        const option = [...document.querySelectorAll(".cdk-overlay-container mat-option")].find((o) => o.innerText.trim() === t);
+        if (!option) return false;
+        option.click();
+        return true;
+      }, time);
+      if (!pickedTime) throw new Error(`Time ${time} not available.`);
+      await sleep(500);
+      if (comment) {
+        const field = await page.$(".cdk-overlay-container :is(mat-dialog-container, .mat-mdc-dialog-container) textarea");
+        if (field) await field.type(comment);
+      }
+      const shown = await page.evaluate(() => document.querySelector(".cdk-overlay-container input[readonly]")?.value ?? "");
+      if (!(await clickOverlay(page, "button", "^Adiar$"))) throw new Error("Snooze confirm button not found.");
+      await waitDialogClosed(page).catch(() => null);
+      await sleep(2000);
+      await ensureList(page, null);
+      const stillOpen = (await readList(page)).some((item) => item.contact === match.contact);
+      return { snoozed: !stillOpen, contact: match.contact, until: `${date} ${time}`, panel_date: shown, verified: !stillOpen };
+    } catch (error) {
+      await closeOverlays(page);
+      throw error;
+    }
+  });
+
+async function goToSection(page, buttonLabel, readySelectorOrText) {
+  await ensureList(page, null);
+  await page.evaluate((label) => [...document.querySelectorAll("button")].find((b) => b.innerText.includes(label))?.click(), buttonLabel);
+  if (readySelectorOrText.startsWith("text:")) {
+    const text = readySelectorOrText.slice(5);
+    await page.waitForFunction((t) => document.body.innerText.includes(t), { timeout: 30000 }, text);
+  } else {
+    await page.waitForSelector(readySelectorOrText, { timeout: 30000 });
+  }
+  await sleep(1500);
+}
+
+export const statistics = () =>
+  exclusive(async () => {
+    const page = await getWorkPage();
+    await goToSection(page, "Painel de Estatísticas", "text:Atendimentos Hoje");
+    await sleep(1500);
+    const data = await page.evaluate(() => {
+      const lines = document.body.innerText.split("\n").map((l) => l.trim()).filter(Boolean);
+      const counters = {};
+      for (const label of ["Atendimentos Hoje", "Atendimentos Ativos", "Atendimentos Concluídos", "Atendimentos Sem Resposta", "Atendimentos Adiados"]) {
+        const i = lines.indexOf(label);
+        if (i >= 0) counters[label] = lines.slice(i + 1, i + 4).find((l) => /^(\d+|-)$/.test(l)) ?? null;
+      }
+      const agents = [...document.querySelectorAll("tr")]
+        .map((tr) => [...tr.querySelectorAll("td")].map((td) => td.innerText.trim()))
+        .filter((cells) => cells.length >= 3)
+        .map(([nome, sem_resposta, ativos]) => ({ nome, sem_resposta, ativos }));
+      const tags = lines.includes("Sem Etiquetas em Uso") ? [] : undefined;
+      return { counters, agents, tags };
+    });
+    await page.goto(LIST_URL, { waitUntil: "domcontentloaded" });
+    return data;
+  });
+
+export const quickReplies = () =>
+  exclusive(async () => {
+    const page = await getWorkPage();
+    await goToSection(page, "Respostas Rápidas", "text:Tenha mensagens prontas");
+    const data = await page.evaluate(() => ({
+      empty: document.body.innerText.includes("Nenhum Modelo Encontrado"),
+      items: [...document.querySelectorAll("tr.mat-mdc-row, tr.cdk-row")].map((tr) => {
+        const cells = [...tr.querySelectorAll("td")].map((td) => td.innerText.trim());
+        return { nome: cells[0], grupo: cells[1], detalhes: cells.slice(2).filter(Boolean) };
+      }),
+    }));
+    await page.goto(LIST_URL, { waitUntil: "domcontentloaded" });
+    return data;
+  });
+
+export const listConcluded = ({ query, pageNumber = 1 } = {}) =>
+  exclusive(async () => {
+    const page = await getWorkPage();
+    await goToSection(page, "Atendimentos Concluídos", "tr.mat-mdc-row");
+    if (query) {
+      const input = await page.evaluateHandle(() =>
+        [...document.querySelectorAll("input")].find((i) => i.offsetParent && /nome|pesquisar/i.test(`${i.placeholder} ${i.getAttribute("aria-label") ?? ""} ${i.closest(".mat-mdc-form-field")?.innerText ?? ""}`)),
+      );
+      if (!input.asElement()) throw new Error("Search field not found in concluded conversations.");
+      await input.asElement().click();
+      await input.asElement().type(query);
+      await page.keyboard.press("Enter");
+      await sleep(3000);
+    }
+    for (let i = 1; i < pageNumber; i++) {
+      const moved = await page.evaluate(() => {
+        const next = document.querySelector(".mat-mdc-paginator-navigation-next");
+        if (!next || next.disabled) return false;
+        next.click();
+        return true;
+      });
+      if (!moved) break;
+      await sleep(1200);
+    }
+    const data = await page.evaluate(() => ({
+      periodo: [...document.querySelectorAll("*")].find((e) => e.childElementCount === 0 && /Mostrando/.test(e.textContent))?.textContent.trim(),
+      paginacao: document.querySelector(".mat-mdc-paginator-range-label")?.innerText.trim(),
+      conversas: [...document.querySelectorAll("tr.mat-mdc-row")].map((tr) => {
+        const cells = [...tr.querySelectorAll("td")].map((td) => td.innerText.trim());
+        return { contato: cells[0]?.split("\n")[0], detalhe: cells[0]?.split("\n").slice(1).join(" ") || undefined, status: cells[1]?.replace(/^[a-z_]+\s+/, ""), usuario: cells[2], atualizado: cells[3] };
+      }),
+    }));
+    await page.goto(LIST_URL, { waitUntil: "domcontentloaded" });
+    return data;
+  });
+
+async function openContactsMenuItem(page, label) {
+  await ensureList(page, null);
+  const opened = await page.evaluate(() => {
+    const button = [...document.querySelectorAll("button")].find((b) => b.innerText.trim() === "more_vert" && b.getBoundingClientRect().x < 400);
+    if (!button) return false;
+    button.click();
+    return true;
+  });
+  if (!opened) throw new Error("Contacts menu not found.");
+  await sleep(600);
+  if (!(await clickOverlay(page, "button, [role=menuitem]", label))) {
+    await closeOverlays(page);
+    throw new Error(`Contacts option "${label}" not found.`);
+  }
+  await page.waitForSelector(".cdk-overlay-container :is(mat-dialog-container, .mat-mdc-dialog-container)", { timeout: 8000 });
+  await sleep(600);
+}
+
+export const searchContact = ({ query }) =>
+  exclusive(async () => {
+    const page = await getWorkPage();
+    await openContactsMenuItem(page, "Buscar contato");
+    try {
+      const input = await page.$(".cdk-overlay-container :is(mat-dialog-container, .mat-mdc-dialog-container) input[type=text]");
+      if (!input) throw new Error("Contact search field not found.");
+      await input.type(query);
+      if (!(await clickOverlay(page, "button", "^Buscar$"))) throw new Error("Search button not found.");
+      await sleep(3500);
+      return await page.evaluate(() => {
+        const dialog = document.querySelector(".cdk-overlay-container :is(mat-dialog-container, .mat-mdc-dialog-container)");
+        const lines = (dialog?.innerText ?? "")
+          .split("\n")
+          .map((l) => l.trim())
+          .filter((l) => l && !/^(Modo de busca|Nome ou telefone|Cancelar|Buscar|Buscar contato|Localizar|Contatos|[a-z_]+)$/.test(l));
+        return { resultados: lines };
+      });
+    } finally {
+      await closeOverlays(page);
+    }
+  });
+
+export const createContact = ({ name, phone }) =>
+  exclusive(async () => {
+    const page = await getWorkPage();
+    await openContactsMenuItem(page, "Novo contato");
+    try {
+      const inputs = await page.$$(".cdk-overlay-container :is(mat-dialog-container, .mat-mdc-dialog-container) input[type=text], .cdk-overlay-container :is(mat-dialog-container, .mat-mdc-dialog-container) input[type=tel]");
+      if (inputs.length < 2) throw new Error("New contact fields not found.");
+      await inputs[0].type(name);
+      await inputs[1].type(phone);
+      if (!(await clickOverlay(page, "button", "^Criar contato$"))) throw new Error("Create button not found.");
+      const closed = await waitDialogClosed(page, 15000).then(() => true).catch(() => false);
+      if (!closed) {
+        const message = await page.evaluate(() => document.querySelector(".cdk-overlay-container :is(mat-error, .mat-mdc-form-field-error, simple-snack-bar)")?.innerText.trim());
+        throw new Error(`Aspa did not confirm the new contact${message ? `: ${message}` : "."}`);
+      }
+      return { created: true, name, phone, verified: true };
+    } catch (error) {
+      await closeOverlays(page);
+      throw error;
+    }
+  });
+
+export const setPromotionsBlocked = ({ index, contact, blocked }) =>
+  exclusive(async () => {
+    const page = await getWorkPage();
+    const match = await openConversation(page, { index, contact });
+    const state = () =>
+      page.evaluate(() => {
+        const toggle = [...document.querySelectorAll("mat-slide-toggle")].find((t) => t.innerText.includes("Bloquear Promoções"));
+        const control = toggle?.querySelector("button[role=switch], input[type=checkbox]");
+        if (!control) return null;
+        return control.getAttribute("aria-checked") === "true" || control.checked === true;
+      });
+    const current = await state();
+    if (current === null) throw new Error("Promotions toggle not found in the contact panel.");
+    let dialog;
+    if (current !== blocked) {
+      await page.evaluate(() => {
+        const toggle = [...document.querySelectorAll("mat-slide-toggle")].find((t) => t.innerText.includes("Bloquear Promoções"));
+        toggle.querySelector("button[role=switch], input[type=checkbox]").click();
+      });
+      await sleep(1200);
+      if (await dialogOpen(page)) {
+        dialog = await overlayTexts(page, "h2, p, button");
+        await clickOverlay(page, "button", "^(Confirmar|Sim|Desbloquear|Bloquear|Continuar|OK)$");
+        await sleep(1200);
+      }
+    }
+    let now = await state();
+    for (let i = 0; i < 5 && now !== blocked; i++) {
+      await sleep(800);
+      now = await state();
+    }
+    return { promotions_blocked: now, contact: match.contact, changed: current !== now, verified: now === blocked, dialog };
+  });
+
+const REVIEW_TIMEOUT_MS = 20 * 60 * 1000;
+
+export function openDraft({ index, contact, text, timeoutMinutes }, { onClosed } = {}) {
+  let reportOpened;
+  const opened = new Promise((resolve) => (reportOpened = resolve));
+  exclusive(async () => {
+    interactive = "review";
+    const limit = timeoutMinutes ? Math.min(Math.max(Number(timeoutMinutes), 1), 60) * 60000 : REVIEW_TIMEOUT_MS;
+    let match = null;
+    let baseline = 0;
+    let lastSent = 0;
+    try {
+      await closeBrowser();
+      await ensureBrowser(true);
+      const page = workPage;
+      match = await openConversation(page, { index, contact });
+      if (await assumeButton(page)) throw new Error("This conversation has no agent yet. Assume it (aspa_assume) before opening a draft.");
+      const filled = await page.evaluate((value) => {
+        const box = document.querySelector("textarea.cdk-textarea-autosize");
+        if (!box) return false;
+        Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(box, value);
+        box.dispatchEvent(new Event("input", { bubbles: true }));
+        box.focus();
+        return true;
+      }, text);
+      if (!filled) throw new Error("Reply box not available. The 24h window may be closed; use a template instead.");
+      baseline = await countSent(page);
+      lastSent = baseline;
+      await page.bringToFront();
+      reportOpened({ opened: true, contact: match.contact, window_minutes: limit / 60000 });
+      const deadline = Date.now() + limit;
+      let reason = "timeout";
+      while (Date.now() < deadline) {
+        if (!browser?.connected || page.isClosed()) {
+          reason = "closed_by_user";
+          break;
+        }
+        lastSent = await countSent(page).catch(() => lastSent);
+        await sleep(2000);
+      }
+      onClosed?.({ contact: match.contact, sent_by_user: lastSent > baseline, messages_sent: Math.max(0, lastSent - baseline), reason });
+    } catch (error) {
+      reportOpened({ error: error.message });
+      if (match) onClosed?.({ contact: match.contact, sent_by_user: lastSent > baseline, messages_sent: Math.max(0, lastSent - baseline), reason: "error" });
+    } finally {
+      interactive = null;
+      await closeBrowser().catch(() => null);
+    }
+  }).catch(() => null);
+  return opened.then((result) => {
+    if (result.error) throw new Error(result.error);
+    return result;
+  });
 }
 
 export async function shutdown() {

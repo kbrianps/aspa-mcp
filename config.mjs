@@ -29,6 +29,11 @@ export const DEFAULTS = {
   notificacoes: {
     abas: ["meus"],
     apenas_mensagens_de_cliente: true,
+    atendentes: [],
+    contatos_incluir: [],
+    contatos_ignorar: [],
+    nova_conversa: true,
+    mostrar_atendente: true,
     canais: ["desktop", "slack", "ntfy"],
     dias: [...DAYS],
     horario: { inicio: "00:00", fim: "23:59" },
@@ -93,6 +98,7 @@ function validate(config, errors) {
     n.fora_do_horario = DEFAULTS.notificacoes.fora_do_horario;
   }
   n.intervalo_minimo_minutos = Math.max(0, Number(n.intervalo_minimo_minutos) || 0);
+  for (const field of ["atendentes", "contatos_incluir", "contatos_ignorar"]) n[field] = asList(n[field]).map(String);
   config.rascunhos.sempre = asList(config.rascunhos.sempre);
   config.rascunhos.nunca = asList(config.rascunhos.nunca);
   config.rascunhos.exemplos = asList(config.rascunhos.exemplos);
@@ -133,4 +139,24 @@ export function withinSchedule(notifications, date = new Date()) {
 export function greetingFor(timeZone, date = new Date()) {
   const hour = Math.floor(localParts(timeZone, date).minutes / 60);
   return hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
+}
+
+export const normalizeName = (value) =>
+  String(value ?? "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim();
+
+export function passesFilters(n, item) {
+  const contact = normalizeName(item.contact);
+  if (n.contatos_ignorar.some((name) => contact.includes(normalizeName(name)))) return false;
+  if (n.contatos_incluir.length && !n.contatos_incluir.some((name) => contact.includes(normalizeName(name)))) return false;
+  if (n.atendentes.length) {
+    const agent = normalizeName(item.agent);
+    const wanted = n.atendentes.map(normalizeName);
+    const match = item.agent ? wanted.some((name) => name !== "sem_atendente" && agent.includes(name)) : wanted.includes("sem_atendente");
+    if (!match) return false;
+  }
+  return true;
 }
