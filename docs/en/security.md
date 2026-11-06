@@ -43,6 +43,16 @@ Each entry also has: date and time, duration, user and computer, contact, status
 
 > The log contains texts sent to customers (personal data, covered by LGPD, Brazil's data protection law). Treat it as confidential.
 
+### Built-in protections
+
+- **Right recipient:** every write requires the contact name and checks the header of the open conversation before the final click. With the `conversation_id` from the read, it refuses if the conversation is a different one.
+- **No double sends:** the same message to the same contact within 2 minutes is refused.
+- **Cancelled requests do not run:** if the assistant gives up on a call that was still queued, it is not executed in Aspa.
+- **Real read-only mode:** with `ASPA_READ_ONLY=1` in the `env` file, the service itself refuses every write, whatever the client.
+- **Local files:** attachments can only come from your home folder (outside hidden folders such as `~/.config` and `~/.ssh`), `/tmp` or downloaded attachments. Knowledge documents are only read and written inside the knowledge folder, without symbolic links or hidden files. The assistant cannot change the knowledge folder or the audit settings.
+- **Customer content is data, not orders:** the MCP tells the model to ignore requests written inside messages, contact names and documents.
+- **Alerts that stop, tell you:** if the panel cannot be read for more than 5 minutes, you get an alert, and another one when it recovers. `npm run saude` shows the status.
+
 ### Precautions
 
 - Write actions affect **real customers**. Approve only what you have read.

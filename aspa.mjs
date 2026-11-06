@@ -1,12 +1,14 @@
-import { existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { existsSync, lstatSync, mkdirSync, readlinkSync, realpathSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, join } from "node:path";
+import { basename, join, relative, sep } from "node:path";
 import puppeteer from "puppeteer-core";
+import { AspaError, CODES, fail } from "./errors.mjs";
 import { transcribeFiles, transcriptionEnabled } from "./transcription.mjs";
 
 const APP_ORIGIN = "https://app.aspa.chat";
 const LIST_URL = `${APP_ORIGIN}/atendimento`;
-const ICON_LINE = /^[a-z][a-z0-9_]*$/;
+const ICON_LINE = /^[a-z]+(_[a-z]+)+$/;
 const DATA_DIR = join(homedir(), ".local", "share", "aspa-mcp");
 const PROFILE_DIR = process.env.ASPA_PROFILE_DIR || join(DATA_DIR, "profile");
 const CACHE_DIR = process.env.ASPA_CACHE_DIR || join(homedir(), ".cache", "aspa-mcp");
@@ -20,32 +22,156 @@ let browser = null;
 let workPage = null;
 let watchPage = null;
 let visible = false;
+let chromeProcess = null;
 let queue = Promise.resolve();
+let queued = 0;
 let interactive = null;
+let launchFailures = 0;
+const requestContext = new AsyncLocalStorage();
+const watcherHealth = { lastTickOkAt: null, consecutiveFailures: 0, lastError: null, degraded: false };
 
 export const interactiveMode = () => interactive;
+export const withRequest = (signal, fn) => requestContext.run({ signal }, fn);
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function exclusive(fn) {
-  const run = queue.then(fn, fn);
+  const signal = requestContext.getStore()?.signal;
+  queued += 1;
+  if (queued > 3) console.error(`[queue] ${queued} actions waiting`);
+  const task = () => {
+    queued -= 1;
+    if (signal?.aborted) throw new AspaError(CODES.CANCELLED, "O pedido foi cancelado antes de começar; nada foi feito no Aspa.");
+    return fn();
+  };
+  const run = queue.then(task, task);
   queue = run.catch(() => {});
   return run;
 }
 
+export function health() {
+  return {
+    chrome: { connected: !!browser?.connected, pid: chromeProcess?.pid ?? null, visible },
+    queue: queued,
+    interactive,
+    watcher: { ...watcherHealth },
+  };
+}
+
+function killChrome(processHandle) {
+  if (processHandle && processHandle.exitCode === null && processHandle.signalCode === null) {
+    try {
+      processHandle.kill("SIGKILL");
+    } catch {}
+  }
+}
+
+function clearStaleProfileLock() {
+  const lock = join(PROFILE_DIR, "SingletonLock");
+  let target;
+  try {
+    if (!lstatSync(lock).isSymbolicLink()) return;
+    target = readlinkSync(lock);
+  } catch {
+    return;
+  }
+  const pid = Number(target.split("-").pop());
+  if (Number.isInteger(pid) && pid > 0) {
+    try {
+      process.kill(pid, 0);
+      return;
+    } catch (error) {
+      if (error.code !== "ESRCH") return;
+    }
+  }
+  for (const name of ["SingletonLock", "SingletonSocket", "SingletonCookie"]) {
+    try {
+      unlinkSync(join(PROFILE_DIR, name));
+    } catch {}
+  }
+  console.error("[chrome] removed a stale profile lock");
+}
+
+function assertDisplay() {
+  if (!process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
+    fail(
+      CODES.NO_DISPLAY,
+      "Não há tela disponível para abrir a janela do Aspa (DISPLAY/WAYLAND_DISPLAY vazios). Reinstale o serviço numa sessão gráfica com npm run install-service.",
+    );
+  }
+}
+
 async function closeBrowser() {
   const current = browser;
+  const processHandle = chromeProcess;
   browser = null;
   workPage = null;
   watchPage = null;
-  if (current?.connected) await current.close();
+  chromeProcess = null;
+  if (current?.connected) await current.close().catch(() => null);
+  killChrome(processHandle);
+}
+
+const PAGE_HELPERS = () => {
+  window.__aspaText = (element) => {
+    if (!element) return "";
+    const icons = [...element.querySelectorAll("mat-icon, .material-icons, .material-symbols-outlined, .material-icons-outlined")];
+    const previous = icons.map((icon) => icon.style.getPropertyValue("display"));
+    icons.forEach((icon) => icon.style.setProperty("display", "none", "important"));
+    const text = element.innerText;
+    icons.forEach((icon, i) => {
+      icon.style.removeProperty("display");
+      if (previous[i]) icon.style.setProperty("display", previous[i]);
+    });
+    return text;
+  };
+};
+
+const preparedPages = new WeakSet();
+async function preparePage(page) {
+  if (!preparedPages.has(page)) {
+    preparedPages.add(page);
+    await page.evaluateOnNewDocument(PAGE_HELPERS);
+  }
+  await page.evaluate(PAGE_HELPERS).catch(() => null);
+  return page;
 }
 
 async function ensureBrowser(headful = false) {
   if (browser?.connected && visible !== headful) await closeBrowser();
   if (browser?.connected) return browser;
   mkdirSync(PROFILE_DIR, { recursive: true });
-  browser = await puppeteer.launch({
+  clearStaleProfileLock();
+  try {
+    browser = await launchChrome(headful);
+    launchFailures = 0;
+  } catch (error) {
+    launchFailures += 1;
+    console.error(`[chrome] launch failed (${launchFailures}/3): ${error.message}`);
+    if (launchFailures >= 3) {
+      console.error("[chrome] giving up after 3 failed launches; exiting so systemd restarts the service");
+      setTimeout(() => process.exit(1), 500);
+    }
+    throw new AspaError(CODES.INTERNAL, `Não consegui abrir o Chrome: ${error.message}`);
+  }
+  chromeProcess = browser.process();
+  visible = headful;
+  const launched = browser;
+  const launchedProcess = chromeProcess;
+  browser.on("disconnected", () => {
+    killChrome(launchedProcess);
+    if (browser !== launched) return;
+    browser = null;
+    workPage = null;
+    watchPage = null;
+    chromeProcess = null;
+  });
+  workPage = await preparePage((await browser.pages())[0] ?? (await browser.newPage()));
+  return browser;
+}
+
+function launchChrome(headful) {
+  return puppeteer.launch({
     executablePath: CHROME_PATH,
     userDataDir: PROFILE_DIR,
     headless: !headful,
@@ -59,19 +185,11 @@ async function ensureBrowser(headful = false) {
       "--disable-backgrounding-occluded-windows",
     ],
   });
-  visible = headful;
-  browser.on("disconnected", () => {
-    browser = null;
-    workPage = null;
-    watchPage = null;
-  });
-  workPage = (await browser.pages())[0] ?? (await browser.newPage());
-  return browser;
 }
 
 async function getWorkPage() {
   const b = await ensureBrowser();
-  if (!workPage || workPage.isClosed()) workPage = await b.newPage();
+  if (!workPage || workPage.isClosed()) workPage = await preparePage(await b.newPage());
   await workPage.bringToFront();
   return workPage;
 }
@@ -79,7 +197,7 @@ async function getWorkPage() {
 async function getWatchPage() {
   const b = await ensureBrowser();
   if (!watchPage || watchPage.isClosed()) {
-    watchPage = await b.newPage();
+    watchPage = await preparePage(await b.newPage());
     await watchPage.setViewport({ width: 1400, height: 900 });
   }
   return watchPage;
@@ -109,11 +227,11 @@ async function waitForSession(page, timeout) {
 async function ensureList(page, tab) {
   const onList = page.url() === LIST_URL || (page.url().startsWith(`${LIST_URL}/`) && (await page.$("button.list-otps-btn")));
   if (!onList) await page.goto(LIST_URL, { waitUntil: "domcontentloaded" });
-  if ((await waitForSession(page, 30000)) === "logged_out") throw new Error("Aspa session expired or missing. Call aspa_login.");
+  if ((await waitForSession(page, 30000)) === "logged_out") fail(CODES.SESSION_EXPIRED, "A sessão do Aspa expirou ou não existe. Chame aspa_login para entrar de novo.");
   await page.waitForFunction(() => document.querySelectorAll("button.list-otps-btn").length > 0, { timeout: 60000 }).catch(() => null);
   if ((await activeFilterChips(page)).length) await clearListFilters(page);
   const clicked = await selectTab(page, tab ?? "todos");
-  if (tab && !clicked) throw new Error(`Filter tab "${tab}" not found in the Aspa panel. Another list filter may be active; clear it in the panel.`);
+  if (tab && !clicked) fail(CODES.UI_CHANGED, `A aba "${tab}" não foi encontrada no painel. Outro filtro da lista pode estar ativo; limpe-o no painel.`);
 }
 
 async function selectTab(page, tab) {
@@ -150,26 +268,22 @@ async function readList(page) {
     .catch(() => null);
   return page.evaluate((iconPattern) => {
     const icon = new RegExp(iconPattern);
-    return [...document.querySelectorAll("button.list-otps-btn")].map((button, index) => {
-      const time = button.querySelector(".obtn-time")?.innerText.trim() ?? "";
-      const lines = button.innerText
+    const textOf = (element) => (window.__aspaText ? window.__aspaText(element) : element.innerText);
+    const linesOf = (element) =>
+      textOf(element)
         .split("\n")
         .map((line) => line.trim())
         .filter((line) => line && !icon.test(line));
+    return [...document.querySelectorAll("button.list-otps-btn")].map((button, index) => {
+      const time = button.querySelector(".obtn-time")?.innerText.trim() ?? "";
+      const lines = linesOf(button);
       const unread = !!button.querySelector("mat-icon.mat-warn")?.innerText.trim();
       const captions = [...button.querySelectorAll(".btn-main-txt .mat-caption, .btn-main-txt small, .btn-main-txt span")]
-        .map((e) =>
-          e.innerText
-            .split("\n")
-            .map((l) => l.trim())
-            .filter((l) => l && !icon.test(l))
-            .join(" ")
-            .replace(/^[a-z_]+ /, ""),
-        )
+        .map((e) => linesOf(e).join(" "))
         .filter(Boolean);
       const agentCaption = button.querySelector(".btn-main-txt .mat-caption");
       const hasAgentIcon = agentCaption?.querySelector("mat-icon")?.textContent.trim() === "support_agent";
-      const agentName = hasAgentIcon ? agentCaption.textContent.replace("support_agent", "").replace(/\s+/g, " ").trim() : "";
+      const agentName = hasAgentIcon ? linesOf(agentCaption).join(" ").replace(/\s+/g, " ").trim() : "";
       const details = lines.slice(1).filter((line) => line !== time);
       const assigned = hasAgentIcon && !details.some((line) => /sem usu[aá]rio/i.test(line));
       return { index, contact: lines[0] ?? "", time, unread, assigned, agent: assigned ? agentName || null : null, details, captions };
@@ -177,13 +291,35 @@ async function readList(page) {
   }, ICON_LINE.source);
 }
 
-function pickConversation(items, { index, contact }) {
+const comparable = (value) => normalizeText(value).replace(/\s+/g, " ").trim();
+
+export function sameContact(shown, expected) {
+  const a = comparable(shown);
+  const b = comparable(expected);
+  if (!a || !b) return false;
+  return a === b || (Math.min(a.length, b.length) >= 3 && (a.includes(b) || b.includes(a)));
+}
+
+export function conversationIdFrom(url) {
+  try {
+    return new URL(url).pathname.match(/^\/atendimento\/([^/?#]+)/)?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function pickConversation(items, { index, contact }) {
   if (contact) {
-    const needle = contact.toLowerCase();
-    const exact = items.filter((item) => item.contact.toLowerCase() === needle);
-    const matches = exact.length ? exact : items.filter((item) => item.contact.toLowerCase().includes(needle));
+    const needle = comparable(contact);
+    const exact = items.filter((item) => comparable(item.contact) === needle);
+    const matches = exact.length ? exact : items.filter((item) => comparable(item.contact).includes(needle));
     if (matches.length > 1) {
-      throw new Error(`More than one conversation matches "${contact}": ${matches.map((m) => `${m.index}:${m.contact}`).join(", ")}. Use index.`);
+      const byIndex = Number.isInteger(index) ? matches.find((m) => m.index === index) : undefined;
+      if (byIndex) return byIndex;
+      fail(
+        CODES.AMBIGUOUS,
+        `Mais de uma conversa corresponde a "${contact}": ${matches.map((m) => `${m.index}:${m.contact}`).join(", ")}. Informe também o index da conversa certa.`,
+      );
     }
     return matches[0];
   }
@@ -191,15 +327,48 @@ function pickConversation(items, { index, contact }) {
   return undefined;
 }
 
-async function openConversation(page, target) {
+async function currentConversation(page) {
+  return page.evaluate(() => ({ header: document.querySelector(".header-main-txt h2")?.innerText.trim() ?? "", url: location.href }));
+}
+
+async function assertStillOn(page, match) {
+  const state = await currentConversation(page);
+  const idChanged = match.conversation_id && conversationIdFrom(state.url) !== match.conversation_id;
+  if (!sameContact(state.header, match.contact) || idChanged) {
+    fail(
+      CODES.WRONG_CONVERSATION,
+      `A conversa aberta no painel mudou (esperado "${match.contact}", aberto "${state.header || "nenhuma"}"). Nada foi enviado ou alterado.`,
+    );
+  }
+}
+
+async function openConversation(page, target, { write = false } = {}) {
+  if (write && !String(target.contact ?? "").trim()) {
+    fail(CODES.INVALID_INPUT, "Informe o nome do contato (contact) em toda ação que muda uma conversa; o index sozinho não basta.");
+  }
   await ensureList(page, null);
   const match = pickConversation(await readList(page), target);
-  if (!match) throw new Error("Conversation not found in the current list. Call aspa_list_conversations first.");
+  if (!match) fail(CODES.NOT_FOUND, "Conversa não encontrada na lista de conversas abertas. Chame aspa_list_conversations primeiro.");
   const before = page.url();
   await page.evaluate((i) => document.querySelectorAll("button.list-otps-btn")[i].click(), match.index);
   await page.waitForFunction((previous) => location.href !== previous, { timeout: 5000 }, before).catch(() => null);
   await page.waitForSelector(".att-msg", { timeout: 25000 });
   await waitForStableFeed(page);
+  let state = await currentConversation(page);
+  for (let i = 0; i < 20 && !sameContact(state.header, match.contact); i++) {
+    await sleep(500);
+    state = await currentConversation(page);
+  }
+  if (!sameContact(state.header, match.contact)) {
+    fail(CODES.WRONG_CONVERSATION, `O painel abriu "${state.header || "nenhuma conversa"}" em vez de "${match.contact}". Nada foi feito.`);
+  }
+  match.conversation_id = conversationIdFrom(state.url);
+  if (target.conversation_id && match.conversation_id !== target.conversation_id) {
+    fail(
+      CODES.WRONG_CONVERSATION,
+      `A conversa "${match.contact}" aberta agora (${match.conversation_id ?? "sem id"}) não é a mesma que foi lida antes (${target.conversation_id}). Leia a conversa de novo.`,
+    );
+  }
   return match;
 }
 
@@ -230,8 +399,9 @@ async function loadMore(page, times) {
 async function readFeed(page) {
   return page.evaluate((iconPattern) => {
     const icon = new RegExp(iconPattern);
-    const clean = (text) =>
-      text
+    const textOf = (element) => (window.__aspaText ? window.__aspaText(element) : element.innerText);
+    const clean = (element) =>
+      textOf(element)
         .split("\n")
         .map((line) => line.trim())
         .filter((line) => line && !icon.test(line))
@@ -239,9 +409,9 @@ async function readFeed(page) {
     const header = document.querySelector(".header-main-txt");
     const items = [...document.querySelectorAll(".wrp-feed-item")].map((item) => {
       const message = item.querySelector(".att-msg");
-      if (!message) return { type: "event", text: clean(item.innerText) };
+      if (!message) return { type: "event", text: clean(item) };
       const status = message.querySelector("[aria-label^='Entregue'], [aria-description^='Entregue']");
-      const lines = clean(message.innerText).split("\n");
+      const lines = clean(message).split("\n");
       const time = /^\d{1,2}:\d{2}$/.test(lines.at(-1)) ? lines.pop() : undefined;
       const bubble = message.querySelector(".att-message-bubble") ?? message;
       const fromButtons = [...bubble.querySelectorAll(".btn-attachment")].map((e) => {
@@ -311,7 +481,7 @@ async function clickHeaderIcon(page, iconName) {
     button.click();
     return true;
   }, iconName);
-  if (!clicked) throw new Error(`Action "${iconName}" not found in the conversation header.`);
+  if (!clicked) fail(CODES.UI_CHANGED, `A ação "${iconName}" não foi encontrada no cabeçalho da conversa.`);
   await sleep(700);
 }
 
@@ -322,9 +492,9 @@ async function clickComposerPlus(page, item) {
     button.click();
     return true;
   });
-  if (!clicked) throw new Error("Composer menu not found.");
+  if (!clicked) fail(CODES.UI_CHANGED, "Não achei o menu + da caixa de resposta.");
   await sleep(600);
-  if (!(await clickOverlay(page, "button, [role=menuitem]", item))) throw new Error(`Composer option "${item}" not found.`);
+  if (!(await clickOverlay(page, "button, [role=menuitem]", item))) fail(CODES.UI_CHANGED, `Não achei a opção "${item}" no menu + da caixa de resposta.`);
   await sleep(1000);
 }
 
@@ -346,13 +516,13 @@ async function overlayTexts(page, selector) {
   return page.evaluate(
     (sel, iconPattern) => {
       const icon = new RegExp(iconPattern);
+      const textOf = (element) => (window.__aspaText ? window.__aspaText(element) : element.innerText);
       return [...document.querySelectorAll(`.cdk-overlay-container :is(${sel})`)].map((e) =>
-        e.innerText
+        textOf(e)
           .split("\n")
           .map((l) => l.trim())
           .filter((l) => l && !icon.test(l))
-          .join(" ")
-          .replace(/^[a-z_]+ /, ""),
+          .join(" "),
       );
     },
     selector,
@@ -391,23 +561,26 @@ async function waitDialogClosed(page, timeout = 15000) {
 
 async function chooseOption(page, wanted, what) {
   await page.waitForSelector(".cdk-overlay-container mat-option", { timeout: 10000 });
-  const options = await page.evaluate((iconPattern) => {
-    const icon = new RegExp(iconPattern);
-    return [...document.querySelectorAll(".cdk-overlay-container mat-option")].map((option) => {
-      const first = option.innerText
-        .split("\n")
-        .map((t) => t.trim())
-        .find((t) => t && !icon.test(t));
-      return (first ?? "").replace(/^[a-z][a-z0-9_]* /, "");
-    });
-  }, ICON_LINE.source);
+  const options = await page.evaluate(() => {
+    const textOf = (element) => (window.__aspaText ? window.__aspaText(element) : element.innerText);
+    return [...document.querySelectorAll(".cdk-overlay-container mat-option")].map(
+      (option) =>
+        textOf(option)
+          .split("\n")
+          .map((t) => t.trim())
+          .find(Boolean) ?? "",
+    );
+  });
   const needle = wanted.toLowerCase();
   const exact = options.map((text, i) => ({ text, i })).filter((o) => o.text.toLowerCase() === needle);
   const partial = options.map((text, i) => ({ text, i })).filter((o) => o.text.toLowerCase().includes(needle));
   const picked = exact.length === 1 ? exact : partial;
   if (picked.length !== 1) {
     await closeOverlays(page);
-    throw new Error(`${what} "${wanted}" ${picked.length ? "is ambiguous" : "not found"}. Options: ${options.join(" | ")}`);
+    fail(
+      picked.length ? CODES.AMBIGUOUS : CODES.NOT_FOUND,
+      `${what} "${wanted}" ${picked.length ? "é ambíguo" : "não encontrado"}. Opções: ${options.join(" | ")}`,
+    );
   }
   await page.evaluate((i) => document.querySelectorAll(".cdk-overlay-container mat-option")[i].click(), picked[0].i);
   await sleep(800);
@@ -422,28 +595,44 @@ async function waitSentIncrease(page, before) {
   try {
     await page.waitForFunction((n) => document.querySelectorAll(".att-msg-sent").length > n, { timeout: 30000 }, before);
   } catch {
-    throw new Error("The panel did not show the new message within 30 s. Check the conversation in Aspa before retrying.");
+    fail(CODES.NOT_VERIFIED, "O painel não mostrou a mensagem nova em 30 s. Confira a conversa no Aspa antes de tentar de novo, para não enviar em dobro.");
   }
+}
+
+async function lastSentText(page) {
+  return page.evaluate(() => {
+    const sent = [...document.querySelectorAll(".att-msg-sent")].at(-1);
+    if (!sent) return "";
+    return (window.__aspaText ? window.__aspaText(sent) : sent.innerText).trim();
+  });
+}
+
+function sentMatches(shown, text) {
+  const a = comparable(shown);
+  const b = comparable(text).slice(0, 60);
+  return !!b && a.includes(b);
 }
 
 export const login = () =>
   exclusive(async () => {
+    assertDisplay();
     interactive = "login";
-    await closeBrowser();
-    await ensureBrowser(true);
-    const page = workPage;
-    await page.goto(LIST_URL, { waitUntil: "domcontentloaded" });
-    await page.bringToFront();
-    const deadline = Date.now() + LOGIN_TIMEOUT_MS;
     try {
+      await closeBrowser();
+      await ensureBrowser(true);
+      const page = workPage;
+      await page.goto(LIST_URL, { waitUntil: "domcontentloaded" });
+      await page.bringToFront();
+      const deadline = Date.now() + LOGIN_TIMEOUT_MS;
       while (Date.now() < deadline) {
+        if (!browser?.connected || page.isClosed()) fail(CODES.WINDOW_CLOSED, "A janela de login foi fechada antes de concluir o login.");
         if ((await sessionState(page).catch(() => "loading")) === "logged_in") {
           await sleep(2000);
           return { loggedIn: true, profile: PROFILE_DIR };
         }
         await sleep(1000);
       }
-      throw new Error("Login not completed within 5 minutes.");
+      fail(CODES.TIMEOUT, "O login não foi concluído em 5 minutos. Chame aspa_login de novo.");
     } finally {
       interactive = null;
       await closeBrowser();
@@ -492,7 +681,7 @@ async function clickListMenuItem(page, label) {
     button.click();
     return true;
   });
-  if (!opened) throw new Error("List filter menu not found.");
+  if (!opened) fail(CODES.UI_CHANGED, "Não achei o menu de filtros da lista.");
   await sleep(600);
   const clicked = await page.evaluate((text) => {
     const item = [...document.querySelectorAll(".cdk-overlay-container :is(button, [role=menuitem])")].find(
@@ -504,7 +693,7 @@ async function clickListMenuItem(page, label) {
   }, label);
   if (!clicked) {
     await closeOverlays(page);
-    throw new Error(`List option "${label}" not found.`);
+    fail(CODES.UI_CHANGED, `Não achei a opção "${label}" no menu da lista.`);
   }
   await sleep(1500);
   if (await page.$(".cdk-overlay-backdrop")) await closeOverlays(page);
@@ -519,12 +708,12 @@ export const listConversations = ({ tab, filters = [], order } = {}) =>
     try {
       for (const filter of filters) {
         const label = LIST_FILTERS[filter];
-        if (!label) throw new Error(`Unknown filter "${filter}". Use ${Object.keys(LIST_FILTERS).join(", ")}.`);
+        if (!label) fail(CODES.INVALID_INPUT, `Filtro desconhecido "${filter}". Use ${Object.keys(LIST_FILTERS).join(", ")}.`);
         await clickListMenuItem(page, label);
         applied.push(label);
       }
       if (order && order !== "recentes") {
-        if (!LIST_ORDER[order]) throw new Error('Unknown order. Use "recentes" or "antigas".');
+        if (!LIST_ORDER[order]) fail(CODES.INVALID_INPUT, 'Ordem desconhecida. Use "recentes" ou "antigas".');
         await clickListMenuItem(page, LIST_ORDER[order]);
       }
       const tabs = await page.evaluate(() =>
@@ -544,20 +733,21 @@ export const readConversation = ({ index, contact, loadMoreTimes = 0, keepUnread
     const page = await getWorkPage();
     const match = await openConversation(page, { index, contact });
     if (loadMoreTimes > 0) await loadMore(page, loadMoreTimes);
-    const feed = await readFeed(page);
+    const feed = { conversation_id: match.conversation_id, ...(await readFeed(page)) };
     if (keepUnread && match.unread) feed.kept_unread = await markUnreadInList(page, match.contact).catch(() => false);
     return feed;
   });
 
-export const sendMessage = ({ index, contact, text }) =>
+export const sendMessage = ({ index, contact, conversation_id, text }) =>
   exclusive(async () => {
     const page = await getWorkPage();
-    const match = await openConversation(page, { index, contact });
-    await fillAndSend(page, text);
-    return { sent: true, contact: match.contact };
+    const match = await openConversation(page, { index, contact, conversation_id }, { write: true });
+    const verified = await fillAndSend(page, text, match);
+    return { sent: true, contact: match.contact, conversation_id: match.conversation_id, verified };
   });
 
-async function fillAndSend(page, text) {
+async function fillAndSend(page, text, match) {
+    await assertStillOn(page, match);
     const before = await countSent(page);
     const state = await page.evaluate((value) => {
       const box = document.querySelector("textarea.cdk-textarea-autosize");
@@ -568,9 +758,10 @@ async function fillAndSend(page, text) {
       box.dispatchEvent(new Event("input", { bubbles: true }));
       return "ok";
     }, text);
-    if (state === "busy") throw new Error("The reply box already has text in the panel. Clear it before sending.");
-    if (state !== "ok") throw new Error("Reply box is not available. The 24h window may be closed; use aspa_send_template.");
+    if (state === "busy") fail(CODES.INVALID_INPUT, "A caixa de resposta já tem texto no painel. Limpe-a antes de enviar.");
+    if (state !== "ok") fail(CODES.FORBIDDEN, "A caixa de resposta não está disponível. A janela de 24 h pode estar fechada; use aspa_send_template.");
     await sleep(400);
+    await assertStillOn(page, match);
     const clicked = await page.evaluate(() => {
       const box = document.querySelector("textarea.cdk-textarea-autosize");
       let scope = box;
@@ -590,9 +781,14 @@ async function fillAndSend(page, text) {
         Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(box, "");
         box.dispatchEvent(new Event("input", { bubbles: true }));
       });
-      throw new Error("Send button not available. The 24h window may be closed; use aspa_send_template.");
+      fail(CODES.FORBIDDEN, "O botão de enviar não está disponível. A janela de 24 h pode estar fechada; use aspa_send_template.");
     }
     await waitSentIncrease(page, before);
+    for (let i = 0; i < 20; i++) {
+      if (sentMatches(await lastSentText(page), text)) return true;
+      await sleep(500);
+    }
+    return false;
 }
 
 export const listTemplates = ({ index, contact }) =>
@@ -601,29 +797,28 @@ export const listTemplates = ({ index, contact }) =>
     await openConversation(page, { index, contact });
     await clickComposerPlus(page, "Mensagem Modelo");
     await page.waitForSelector(".cdk-overlay-container mat-option", { timeout: 10000 }).catch(() => null);
-    const templates = await page.evaluate((iconPattern) => {
-      const icon = new RegExp(iconPattern);
+    const templates = await page.evaluate(() => {
+      const textOf = (element) => (window.__aspaText ? window.__aspaText(element) : element.innerText);
       return [...document.querySelectorAll(".cdk-overlay-container mat-option")].map((option) => {
-        const lines = option.innerText
+        const lines = textOf(option)
           .split("\n")
           .map((t) => t.trim())
-          .filter((t) => t && !icon.test(t));
-        if (lines.length >= 2) return { name: lines[0].replace(/^[a-z][a-z0-9_]* /, ""), preview: lines.slice(1).join(" ") };
+          .filter(Boolean);
+        if (lines.length >= 2) return { name: lines[0], preview: lines.slice(1).join(" ") };
         const leaves = [...option.querySelectorAll("*")]
-          .filter((e) => e.childElementCount === 0 && e.innerText?.trim())
-          .map((e) => e.innerText.trim())
-          .filter((t) => !icon.test(t));
+          .filter((e) => e.childElementCount === 0 && !e.closest("mat-icon") && e.innerText?.trim())
+          .map((e) => e.innerText.trim());
         return { name: leaves[0] ?? "", preview: leaves.slice(1).join(" ") };
       });
-    }, ICON_LINE.source);
+    });
     await closeOverlays(page);
     return { templates };
   });
 
-export const sendTemplate = ({ index, contact, template, variables = [] }) =>
+export const sendTemplate = ({ index, contact, conversation_id, template, variables = [] }) =>
   exclusive(async () => {
     const page = await getWorkPage();
-    const match = await openConversation(page, { index, contact });
+    const match = await openConversation(page, { index, contact, conversation_id }, { write: true });
     const before = await countSent(page);
     await clickComposerPlus(page, "Mensagem Modelo");
     const input = await page.waitForSelector(".cdk-overlay-container :is(mat-dialog-container, .mat-mdc-dialog-container) input", { timeout: 10000 });
@@ -640,35 +835,70 @@ export const sendTemplate = ({ index, contact, template, variables = [] }) =>
     }
     if (editable.length !== variables.length) {
       await closeOverlays(page);
-      throw new Error(`Template "${template}" expects ${editable.length} variable(s); received ${variables.length}.`);
+      fail(CODES.INVALID_INPUT, `O template "${template}" pede ${editable.length} variável(is); recebi ${variables.length}.`);
     }
     for (const [i, field] of editable.entries()) {
       await field.click({ clickCount: 3 });
       await field.type(String(variables[i]));
     }
+    try {
+      await assertStillOn(page, match);
+    } catch (error) {
+      await closeOverlays(page);
+      throw error;
+    }
     if (!(await clickOverlay(page, "button", "Enviar$"))) {
       await closeOverlays(page);
-      throw new Error("Send button not found in the template dialog.");
+      fail(CODES.UI_CHANGED, "Não achei o botão Enviar na janela do template. Nada foi enviado.");
     }
     await waitDialogClosed(page);
     await waitSentIncrease(page, before);
-    return { sent: true, contact: match.contact, template };
+    return { sent: true, contact: match.contact, conversation_id: match.conversation_id, template };
   });
 
-export const sendAttachment = ({ index, contact, path, caption }) =>
+export const ATTACHMENT_ROOTS = () => [homedir(), "/tmp", CACHE_DIR];
+
+export function checkAttachmentPath(path) {
+  if (typeof path !== "string" || !path.startsWith("/")) fail(CODES.INVALID_INPUT, "Informe o caminho absoluto do arquivo.");
+  if (!existsSync(path)) fail(CODES.NOT_FOUND, `Arquivo não encontrado: ${path}`);
+  const real = realpathSync(path);
+  if (!statSync(real).isFile()) fail(CODES.INVALID_INPUT, "O caminho não é um arquivo.");
+  const cache = existsSync(CACHE_DIR) ? realpathSync(CACHE_DIR) : CACHE_DIR;
+  const inCache = real.startsWith(cache + sep);
+  const root = ATTACHMENT_ROOTS()
+    .slice(0, 2)
+    .map((r) => (existsSync(r) ? realpathSync(r) : r))
+    .find((r) => real.startsWith(r + sep));
+  const hidden = root && relative(root, real).split(sep).some((part) => part.startsWith("."));
+  if (!inCache && (!root || hidden)) {
+    fail(
+      CODES.FORBIDDEN,
+      "Por segurança, só envio arquivos da sua pasta pessoal (fora de pastas ocultas como ~/.config e ~/.ssh), de /tmp ou anexos baixados pelo aspa-mcp.",
+    );
+  }
+  if (statSync(real).size > MAX_ATTACHMENT_BYTES) fail(CODES.INVALID_INPUT, "O arquivo passa de 16 MB.");
+  return real;
+}
+
+export const sendAttachment = ({ index, contact, conversation_id, path, caption }) =>
   exclusive(async () => {
-    if (!existsSync(path)) throw new Error(`File not found: ${path}`);
-    if (statSync(path).size > MAX_ATTACHMENT_BYTES) throw new Error("File is larger than 16 MB.");
+    const file = checkAttachmentPath(path);
     const page = await getWorkPage();
-    const match = await openConversation(page, { index, contact });
+    const match = await openConversation(page, { index, contact, conversation_id }, { write: true });
     const before = await countSent(page);
     await clickComposerPlus(page, "Inserir Anexo");
     const input = await page.waitForSelector(".cdk-overlay-container input[type=file]", { timeout: 10000 });
-    await input.uploadFile(path);
+    await input.uploadFile(file);
     await sleep(1500);
+    try {
+      await assertStillOn(page, match);
+    } catch (error) {
+      await closeOverlays(page);
+      throw error;
+    }
     if (!(await clickOverlay(page, "button", "^Confirmar$"))) {
       await closeOverlays(page);
-      throw new Error("Confirm button not found in the attachment dialog.");
+      fail(CODES.UI_CHANGED, "Não achei o botão Confirmar na janela do anexo. Nada foi enviado.");
     }
     await sleep(2000);
     let sent = false;
@@ -699,10 +929,10 @@ export const sendAttachment = ({ index, contact, path, caption }) =>
     if (!sent) {
       const buttons = await overlayTexts(page, "button");
       await closeOverlays(page);
-      throw new Error(`Could not find the send step after confirming the attachment. Dialog buttons: ${buttons.join(" | ") || "none"}`);
+      fail(CODES.UI_CHANGED, `Não achei o passo de envio depois de confirmar o anexo. Botões da janela: ${buttons.join(" | ") || "nenhum"}`);
     }
     await waitSentIncrease(page, before);
-    return { sent: true, contact: match.contact, file: basename(path) };
+    return { sent: true, contact: match.contact, conversation_id: match.conversation_id, file: basename(file), path: file };
   });
 
 async function assumeButton(page) {
@@ -711,14 +941,15 @@ async function assumeButton(page) {
   );
 }
 
-export const assume = ({ index, contact }) =>
+export const assume = ({ index, contact, conversation_id }) =>
   exclusive(async () => {
     const page = await getWorkPage();
-    const match = await openConversation(page, { index, contact });
+    const match = await openConversation(page, { index, contact, conversation_id }, { write: true });
     if (!(await assumeButton(page))) {
       const hasBox = await page.evaluate(() => !!document.querySelector("textarea.cdk-textarea-autosize"));
-      return { assumed: false, contact: match.contact, verified: false, note: hasBox ? "Conversation already has an agent." : "Assume button not found." };
+      return { assumed: false, contact: match.contact, verified: false, note: hasBox ? "A conversa já é sua." : "Botão Assumir não encontrado." };
     }
+    await assertStillOn(page, match);
     await page.evaluate(() =>
       [...document.querySelectorAll("button")].find((b) => b.innerText.trim() === "Assumir" && b.offsetParent && !b.closest(".cdk-overlay-container")).click(),
     );
@@ -731,19 +962,19 @@ export const assume = ({ index, contact }) =>
     return { assumed: verified, contact: match.contact, verified };
   });
 
-export const transfer = ({ index, contact, to, comment }) =>
+export const transfer = ({ index, contact, conversation_id, to, comment }) =>
   exclusive(async () => {
     const page = await getWorkPage();
-    const match = await openConversation(page, { index, contact });
+    const match = await openConversation(page, { index, contact, conversation_id }, { write: true });
     await clickHeaderIcon(page, "swap_horiz");
     const input = await page
       .waitForSelector(".cdk-overlay-container :is(mat-dialog-container, .mat-mdc-dialog-container) input", { timeout: 10000 })
       .catch(() => null);
     if (!input) {
       if (await assumeButton(page)) {
-        throw new Error("Aspa did not open the transfer dialog for this conversation. Use aspa_assume to take it first (works for unassigned conversations and conversations of other agents).");
+        fail(CODES.FORBIDDEN, "O Aspa não abriu a transferência desta conversa. Assuma a conversa primeiro com aspa_assume (vale para conversas sem atendente e de outro atendente).");
       }
-      throw new Error("The transfer dialog did not open in the Aspa panel.");
+      fail(CODES.UI_CHANGED, "A janela de transferência não abriu no painel do Aspa.");
     }
     await input.click();
     await page.waitForSelector(".cdk-overlay-container mat-option", { timeout: 8000 }).catch(() => null);
@@ -756,7 +987,7 @@ export const transfer = ({ index, contact, to, comment }) =>
         .catch(() => false);
       if (!visible) {
         await closeOverlays(page);
-        throw new Error(`No transfer destination matches "${to}".`);
+        fail(CODES.NOT_FOUND, `Nenhum destino de transferência corresponde a "${to}".`);
       }
     }
     const chosen = await chooseOption(page, to, "Destination");
@@ -764,24 +995,31 @@ export const transfer = ({ index, contact, to, comment }) =>
       const field = await page.$(".cdk-overlay-container :is(mat-dialog-container, .mat-mdc-dialog-container) textarea");
       if (field) await field.type(comment);
     }
+    try {
+      await assertStillOn(page, match);
+    } catch (error) {
+      await closeOverlays(page);
+      throw error;
+    }
     if (!(await clickOverlay(page, "button", "Transferir$"))) {
       await closeOverlays(page);
-      throw new Error("Transfer button not found in the dialog.");
+      fail(CODES.UI_CHANGED, "Não achei o botão Transferir na janela. Nada foi transferido.");
     }
     await waitDialogClosed(page);
     return { transferred: true, contact: match.contact, to: chosen };
   });
 
-export const snooze = ({ index, contact, duration }) =>
+export const snooze = ({ index, contact, conversation_id, duration }) =>
   exclusive(async () => {
     const label = SNOOZE_LABELS[duration];
-    if (!label) throw new Error(`Invalid duration "${duration}". Use 1h, 1d or 1w.`);
+    if (!label) fail(CODES.INVALID_INPUT, `Duração inválida "${duration}". Use 1h, 1d ou 1w.`);
     const page = await getWorkPage();
-    const match = await openConversation(page, { index, contact });
+    const match = await openConversation(page, { index, contact, conversation_id }, { write: true });
+    await assertStillOn(page, match);
     await clickHeaderIcon(page, "alarm");
     if (!(await clickOverlay(page, "button, [role=menuitem]", `^${label}$`))) {
       await closeOverlays(page);
-      throw new Error(`Snooze option "${label}" not found.`);
+      fail(CODES.UI_CHANGED, `Não achei a opção de adiamento "${label}".`);
     }
     await sleep(1500);
     if (await dialogOpen(page)) await clickOverlay(page, "button", "^(Confirmar|Adiar|Sim)$");
@@ -791,17 +1029,18 @@ export const snooze = ({ index, contact, duration }) =>
     return { snoozed: !stillOpen, contact: match.contact, duration: label, verified: !stillOpen };
   });
 
-export const conclude = ({ index, contact }) =>
+export const conclude = ({ index, contact, conversation_id }) =>
   exclusive(async () => {
     const page = await getWorkPage();
-    const match = await openConversation(page, { index, contact });
+    const match = await openConversation(page, { index, contact, conversation_id }, { write: true });
+    await assertStillOn(page, match);
     await clickHeaderIcon(page, "task_alt");
     await sleep(1200);
     if (await dialogOpen(page)) {
       if (!(await clickOverlay(page, "button", "(Concluir|Confirmar|Sim)$"))) {
         const buttons = await overlayTexts(page, "button");
         await closeOverlays(page);
-        throw new Error(`Unexpected conclude dialog. Buttons: ${buttons.join(" | ")}`);
+        fail(CODES.UI_CHANGED, `A janela de concluir veio diferente do esperado. Botões: ${buttons.join(" | ")}`);
       }
       await waitDialogClosed(page).catch(() => null);
     }
@@ -823,14 +1062,14 @@ export const reopen = ({ contact }) =>
       [...document.querySelectorAll("tr.mat-mdc-row")].map((row, index) => ({ index, contact: row.querySelector("td")?.innerText.split("\n")[0].trim() ?? "" })),
     );
     const match = pickConversation(rows, { contact });
-    if (!match) throw new Error(`No concluded conversation matches "${contact}" on the first page of 'Atendimentos Concluídos' (last week).`);
+    if (!match) fail(CODES.NOT_FOUND, `Nenhuma conversa concluída corresponde a "${contact}" na primeira página de Atendimentos Concluídos (última semana).`);
     await page.evaluate((i) => document.querySelectorAll("tr.mat-mdc-row")[i].querySelector("td").click(), match.index);
     await page.waitForSelector(".cdk-overlay-container :is(mat-dialog-container, .mat-mdc-dialog-container)", { timeout: 15000 });
     await sleep(1000);
     if (!(await clickOverlay(page, "button", "^open_in_new$"))) {
       const buttons = await overlayTexts(page, "button");
       await closeOverlays(page);
-      throw new Error(`Reopen control not found in the conversation preview. Buttons: ${buttons.join(" | ")}`);
+      fail(CODES.UI_CHANGED, `Não achei o botão de abrir a conversa na prévia. Botões: ${buttons.join(" | ")}`);
     }
     await page.waitForFunction(() => location.pathname.startsWith("/atendimento/"), { timeout: 20000 });
     await page
@@ -842,7 +1081,7 @@ export const reopen = ({ contact }) =>
       button.click();
       return true;
     });
-    if (!started) throw new Error("The 'Iniciar' button was not found on the concluded conversation.");
+    if (!started) fail(CODES.UI_CHANGED, "Não achei o botão Iniciar na conversa concluída.");
     await sleep(3000);
     if (await dialogOpen(page)) await clickOverlay(page, "button", "(Iniciar|Confirmar|Sim)$");
     await sleep(2000);
@@ -852,23 +1091,23 @@ export const reopen = ({ contact }) =>
     return { reopened, contact: match.contact, verified: reopened };
   });
 
-export const renameContact = ({ index, contact, name }) =>
+export const renameContact = ({ index, contact, conversation_id, name }) =>
   exclusive(async () => {
     const page = await getWorkPage();
-    const match = await openConversation(page, { index, contact });
+    const match = await openConversation(page, { index, contact, conversation_id }, { write: true });
     const opened = await page.evaluate(() => {
       const pencil = [...document.querySelectorAll("mat-icon, button")].find((e) => e.innerText.trim() === "edit" && e.getBoundingClientRect().x > 1000);
       if (!pencil) return false;
       (pencil.closest("button") ?? pencil).click();
       return true;
     });
-    if (!opened) throw new Error("Contact edit control not found. The contact panel may be closed.");
+    if (!opened) fail(CODES.UI_CHANGED, "Não achei o lápis de editar o contato. O painel do contato pode estar fechado.");
     await sleep(600);
     const field = await page.evaluateHandle(() =>
       [...document.querySelectorAll("input")].find((e) => e.getBoundingClientRect().x > 1000 && !e.readOnly && !e.disabled),
     );
     const input = field.asElement();
-    if (!input) throw new Error("Contact name field not found.");
+    if (!input) fail(CODES.UI_CHANGED, "Não achei o campo de nome do contato.");
     const previous = await input.evaluate((e) => e.value);
     await input.evaluate((e) => {
       e.focus();
@@ -881,7 +1120,16 @@ export const renameContact = ({ index, contact, name }) =>
         Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(e, value);
         e.dispatchEvent(new Event("input", { bubbles: true }));
       }, previous);
-      throw new Error("Could not type the new name; the field was restored without saving.");
+      fail(CODES.UI_CHANGED, "Não consegui digitar o novo nome; o campo foi restaurado sem salvar.");
+    }
+    try {
+      await assertStillOn(page, match);
+    } catch (error) {
+      await input.evaluate((e, value) => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(e, value);
+        e.dispatchEvent(new Event("input", { bubbles: true }));
+      }, previous);
+      throw error;
     }
     await page.keyboard.press("Enter");
     await sleep(2500);
@@ -1005,13 +1253,52 @@ export const downloadAttachments = ({ index, contact, loadMoreTimes = 0, message
     return { contact: match.contact, folder, files };
   });
 
-export function startWatcher({ intervalMs, tabs = ["meus"], onActivity, onSessionLost }) {
+const DEGRADED_AFTER_MS = 5 * 60 * 1000;
+
+async function diagnose(page) {
+  return page
+    .evaluate(() => ({
+      url: location.href,
+      title: document.title,
+      list_items: document.querySelectorAll("button.list-otps-btn").length,
+      tabs: [...document.querySelectorAll("button")].filter((b) => /^(Todos|Meus|Pendentes) \(/.test(b.innerText.trim())).length,
+    }))
+    .catch((error) => ({ error: error.message }));
+}
+
+export function isActivity(previous, item) {
+  if (!previous) return true;
+  if (item.unread && !previous.unread) return true;
+  return previous.time !== item.time && /^\d{1,2}:\d{2}$/.test(item.time);
+}
+
+export function startWatcher({ intervalMs, tabs = ["meus"], onActivity, onSessionLost, onDegraded, onRecovered }) {
   let known = null;
   let lastReload = 0;
   let sessionLost = false;
-  const tick = () => {
-    if (interactive) return Promise.resolve();
-    return exclusive(async () => {
+  let inFlight = false;
+  let lastLoggedError = "";
+  watcherHealth.lastTickOkAt = Date.now();
+  const failed = async (reason, page) => {
+    watcherHealth.consecutiveFailures += 1;
+    watcherHealth.lastError = reason;
+    if (reason !== lastLoggedError) console.error(`[watch] ${reason}`);
+    lastLoggedError = reason;
+    if (!watcherHealth.degraded && Date.now() - watcherHealth.lastTickOkAt > DEGRADED_AFTER_MS) {
+      watcherHealth.degraded = true;
+      onDegraded?.({ reason, diagnosis: page ? await diagnose(page) : undefined });
+    }
+  };
+  const succeeded = () => {
+    if (watcherHealth.degraded) onRecovered?.();
+    watcherHealth.degraded = false;
+    watcherHealth.consecutiveFailures = 0;
+    watcherHealth.lastError = null;
+    watcherHealth.lastTickOkAt = Date.now();
+    lastLoggedError = "";
+  };
+  const tick = () =>
+    exclusive(async () => {
       if (interactive) return;
       const page = await getWatchPage();
       if (Date.now() - lastReload > WATCH_RELOAD_MS || page.url() !== LIST_URL) {
@@ -1022,30 +1309,38 @@ export function startWatcher({ intervalMs, tabs = ["meus"], onActivity, onSessio
       if (state === "logged_out") {
         if (!sessionLost) onSessionLost();
         sessionLost = true;
+        watcherHealth.lastTickOkAt = Date.now();
         return;
       }
       sessionLost = false;
-      if (state !== "logged_in") return;
+      if (state !== "logged_in") return failed("o painel não terminou de carregar", page);
       await page.waitForFunction(() => document.querySelectorAll("button.list-otps-btn").length > 0, { timeout: 30000 }).catch(() => null);
-      if (!(await panelLoaded(page))) return;
+      if (!(await panelLoaded(page))) return failed("a lista de conversas não apareceu", page);
+      if ((await activeFilterChips(page)).length) await clearListFilters(page);
       const next = new Map();
       for (const tab of typeof tabs === "function" ? tabs() : tabs) {
-        if (!(await selectTab(page, tab))) {
-          console.error(`[watch] tab "${tab}" not found`);
-          return;
-        }
+        if (!(await selectTab(page, tab))) return failed(`a aba "${tab}" não foi encontrada`, page);
         for (const item of await readList(page)) next.set(item.contact, item);
       }
       if (known) {
         for (const item of next.values()) {
           const previous = known.get(item.contact);
-          if (!previous || previous.time !== item.time || (item.unread && !previous.unread)) onActivity(item, { isNew: !previous });
+          if (isActivity(previous, item)) onActivity(item, { isNew: !previous });
         }
       }
       known = next;
+      succeeded();
     });
+  const run = () => {
+    if (interactive) watcherHealth.lastTickOkAt = Date.now();
+    if (inFlight || interactive) return;
+    inFlight = true;
+    tick()
+      .catch((error) => failed(error.message))
+      .finally(() => {
+        inFlight = false;
+      });
   };
-  const run = () => tick().catch((error) => console.error(`[watch] ${error.message}`));
   run();
   return setInterval(run, intervalMs);
 }
@@ -1055,14 +1350,14 @@ async function markUnreadInList(page, contactName) {
   await page.goto(LIST_URL, { waitUntil: "domcontentloaded" });
   await ensureList(page, null);
   const item = (await readList(page)).find((i) => i.contact === contactName);
-  if (!item) throw new Error(`Conversation "${contactName}" is not in the open list.`);
+  if (!item) fail(CODES.NOT_FOUND, `A conversa "${contactName}" não está na lista de abertas.`);
   const handle = (await page.$$("button.list-otps-btn"))[item.index];
   const box = await handle.boundingBox();
   await page.mouse.click(box.x + 60, box.y + 18, { button: "right" });
   await sleep(700);
   if (!(await clickOverlay(page, "button, [role=menuitem]", "Marcar como não lida$"))) {
     await closeOverlays(page);
-    throw new Error("Mark as unread option not found.");
+    fail(CODES.UI_CHANGED, "Não achei a opção Marcar como não lida.");
   }
   for (let i = 0; i < 8; i++) {
     await sleep(800);
@@ -1073,11 +1368,12 @@ async function markUnreadInList(page, contactName) {
 
 export const markUnread = ({ index, contact }) =>
   exclusive(async () => {
+    if (!String(contact ?? "").trim()) fail(CODES.INVALID_INPUT, "Informe o nome do contato (contact).");
     const page = await getWorkPage();
     await page.goto(LIST_URL, { waitUntil: "domcontentloaded" });
     await ensureList(page, null);
     const match = pickConversation(await readList(page), { index, contact });
-    if (!match) throw new Error("Conversation not found in the current list.");
+    if (!match) fail(CODES.NOT_FOUND, "Conversa não encontrada na lista de conversas abertas.");
     const verified = await markUnreadInList(page, match.contact);
     return { marked_unread: verified, contact: match.contact, verified };
   });
@@ -1099,24 +1395,24 @@ export const searchConversation = ({ index, contact, query, loadMoreTimes = 3 })
     return { contact: feed.contact, query, searched_items: feed.items.length, matches };
   });
 
-export const replyToMessage = ({ index, contact, messageIndex, text, loadMoreTimes = 0 }) =>
+export const replyToMessage = ({ index, contact, conversation_id, messageIndex, text, loadMoreTimes = 0 }) =>
   exclusive(async () => {
     const page = await getWorkPage();
-    const match = await openConversation(page, { index, contact });
+    const match = await openConversation(page, { index, contact, conversation_id }, { write: true });
     if (loadMoreTimes > 0) await loadMore(page, loadMoreTimes);
     const feed = await readFeed(page);
     const target = feed.items.find((item) => item.index === messageIndex);
-    if (!target || target.type !== "message") throw new Error(`Message ${messageIndex} not found. Read the conversation first and use its index.`);
+    if (!target || target.type !== "message") fail(CODES.NOT_FOUND, `Mensagem ${messageIndex} não encontrada. Leia a conversa de novo e use o índice dela.`);
     const quoted = await page.evaluate((i) => {
       const icon = [...document.querySelectorAll(`[data-aspa-item="${i}"] mat-icon`)].find((e) => e.innerText.trim() === "reply");
       if (!icon) return false;
       icon.click();
       return true;
     }, messageIndex);
-    if (!quoted) throw new Error("Reply control not found on that message.");
+    if (!quoted) fail(CODES.UI_CHANGED, "Não achei o botão de responder nessa mensagem.");
     await sleep(800);
-    await fillAndSend(page, text);
-    return { sent: true, contact: match.contact, replied_to: { index: messageIndex, text: target.text?.slice(0, 120) } };
+    const verified = await fillAndSend(page, text, match);
+    return { sent: true, contact: match.contact, conversation_id: match.conversation_id, verified, replied_to: { index: messageIndex, text: target.text?.slice(0, 120) } };
   });
 
 async function pickCalendarDate(page, isoDate) {
@@ -1128,7 +1424,7 @@ async function pickCalendarDate(page, isoDate) {
     const shown = label.match(/(\d{4})/)?.[1];
     const months = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
     const shownMonth = months.findIndex((m) => normalizeText(label).startsWith(m)) + 1;
-    if (!shown || !shownMonth) throw new Error(`Unexpected calendar header "${label}".`);
+    if (!shown || !shownMonth) fail(CODES.UI_CHANGED, `Cabeçalho inesperado no calendário: "${label}".`);
     const diff = (year - Number(shown)) * 12 + (month - shownMonth);
     if (diff === 0) break;
     await page.click(diff > 0 ? ".mat-calendar-next-button" : ".mat-calendar-previous-button");
@@ -1142,20 +1438,20 @@ async function pickCalendarDate(page, isoDate) {
     cell.click();
     return true;
   }, day);
-  if (!clicked) throw new Error(`Date ${isoDate} is not available in the calendar (past dates are disabled).`);
+  if (!clicked) fail(CODES.INVALID_INPUT, `A data ${isoDate} não está disponível no calendário (datas passadas ficam bloqueadas).`);
   await sleep(600);
 }
 
-export const snoozeUntil = ({ index, contact, date, time, comment }) =>
+export const snoozeUntil = ({ index, contact, conversation_id, date, time, comment }) =>
   exclusive(async () => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date ?? "")) throw new Error("date must be YYYY-MM-DD.");
-    if (!/^([01]\d|2[0-3]):(00|15|30|45)$/.test(time ?? "")) throw new Error("time must be HH:MM in 15-minute steps (e.g. 14:30).");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date ?? "")) fail(CODES.INVALID_INPUT, "A data precisa estar no formato AAAA-MM-DD.");
+    if (!/^([01]\d|2[0-3]):(00|15|30|45)$/.test(time ?? "")) fail(CODES.INVALID_INPUT, "O horário precisa ser HH:MM em passos de 15 minutos (ex.: 14:30).");
     const page = await getWorkPage();
-    const match = await openConversation(page, { index, contact });
+    const match = await openConversation(page, { index, contact, conversation_id }, { write: true });
     await clickHeaderIcon(page, "alarm");
     if (!(await clickOverlay(page, "button, [role=menuitem]", "Escolher data"))) {
       await closeOverlays(page);
-      throw new Error("Custom date option not found in the snooze menu.");
+      fail(CODES.UI_CHANGED, "Não achei a opção Escolher data no menu de adiar.");
     }
     await page.waitForSelector(".cdk-overlay-container :is(mat-dialog-container, .mat-mdc-dialog-container)", { timeout: 8000 });
     try {
@@ -1168,14 +1464,15 @@ export const snoozeUntil = ({ index, contact, date, time, comment }) =>
         option.click();
         return true;
       }, time);
-      if (!pickedTime) throw new Error(`Time ${time} not available.`);
+      if (!pickedTime) fail(CODES.INVALID_INPUT, `O horário ${time} não está disponível.`);
       await sleep(500);
       if (comment) {
         const field = await page.$(".cdk-overlay-container :is(mat-dialog-container, .mat-mdc-dialog-container) textarea");
         if (field) await field.type(comment);
       }
       const shown = await page.evaluate(() => document.querySelector(".cdk-overlay-container input[readonly]")?.value ?? "");
-      if (!(await clickOverlay(page, "button", "^Adiar$"))) throw new Error("Snooze confirm button not found.");
+      await assertStillOn(page, match);
+      if (!(await clickOverlay(page, "button", "^Adiar$"))) fail(CODES.UI_CHANGED, "Não achei o botão de confirmar o adiamento.");
       await waitDialogClosed(page).catch(() => null);
       await sleep(2000);
       await ensureList(page, null);
@@ -1245,7 +1542,7 @@ export const listConcluded = ({ query, pageNumber = 1 } = {}) =>
       const input = await page.evaluateHandle(() =>
         [...document.querySelectorAll("input")].find((i) => i.offsetParent && /nome|pesquisar/i.test(`${i.placeholder} ${i.getAttribute("aria-label") ?? ""} ${i.closest(".mat-mdc-form-field")?.innerText ?? ""}`)),
       );
-      if (!input.asElement()) throw new Error("Search field not found in concluded conversations.");
+      if (!input.asElement()) fail(CODES.UI_CHANGED, "Não achei o campo de busca nos atendimentos concluídos.");
       await input.asElement().click();
       await input.asElement().type(query);
       await page.keyboard.press("Enter");
@@ -1265,8 +1562,8 @@ export const listConcluded = ({ query, pageNumber = 1 } = {}) =>
       periodo: [...document.querySelectorAll("*")].find((e) => e.childElementCount === 0 && /Mostrando/.test(e.textContent))?.textContent.trim(),
       paginacao: document.querySelector(".mat-mdc-paginator-range-label")?.innerText.trim(),
       conversas: [...document.querySelectorAll("tr.mat-mdc-row")].map((tr) => {
-        const cells = [...tr.querySelectorAll("td")].map((td) => td.innerText.trim());
-        return { contato: cells[0]?.split("\n")[0], detalhe: cells[0]?.split("\n").slice(1).join(" ") || undefined, status: cells[1]?.replace(/^[a-z_]+\s+/, ""), usuario: cells[2], atualizado: cells[3] };
+        const cells = [...tr.querySelectorAll("td")].map((td) => (window.__aspaText ? window.__aspaText(td) : td.innerText).trim());
+        return { contato: cells[0]?.split("\n")[0], detalhe: cells[0]?.split("\n").slice(1).join(" ") || undefined, status: cells[1], usuario: cells[2], atualizado: cells[3] };
       }),
     }));
     await page.goto(LIST_URL, { waitUntil: "domcontentloaded" });
@@ -1281,11 +1578,11 @@ async function openContactsMenuItem(page, label) {
     button.click();
     return true;
   });
-  if (!opened) throw new Error("Contacts menu not found.");
+  if (!opened) fail(CODES.UI_CHANGED, "Não achei o menu de contatos.");
   await sleep(600);
   if (!(await clickOverlay(page, "button, [role=menuitem]", label))) {
     await closeOverlays(page);
-    throw new Error(`Contacts option "${label}" not found.`);
+    fail(CODES.UI_CHANGED, `Não achei a opção "${label}" no menu de contatos.`);
   }
   await page.waitForSelector(".cdk-overlay-container :is(mat-dialog-container, .mat-mdc-dialog-container)", { timeout: 8000 });
   await sleep(600);
@@ -1301,18 +1598,20 @@ async function searchContactIn(page, query) {
     await openContactsMenuItem(page, "Buscar contato");
     try {
       const input = await page.$(".cdk-overlay-container :is(mat-dialog-container, .mat-mdc-dialog-container) input[type=text]");
-      if (!input) throw new Error("Contact search field not found.");
+      if (!input) fail(CODES.UI_CHANGED, "Não achei o campo de busca de contatos.");
       await input.type(query);
-      if (!(await clickOverlay(page, "button", "^Buscar$"))) throw new Error("Search button not found.");
+      if (!(await clickOverlay(page, "button", "^Buscar$"))) fail(CODES.UI_CHANGED, "Não achei o botão Buscar.");
       await sleep(3500);
-      return await page.evaluate(() => {
+      return await page.evaluate((iconPattern) => {
+        const icon = new RegExp(iconPattern);
         const dialog = document.querySelector(".cdk-overlay-container :is(mat-dialog-container, .mat-mdc-dialog-container)");
-        const lines = (dialog?.innerText ?? "")
+        const text = dialog ? (window.__aspaText ? window.__aspaText(dialog) : dialog.innerText) : "";
+        const lines = text
           .split("\n")
           .map((l) => l.trim())
-          .filter((l) => l && !/^(Modo de busca|Nome ou telefone|Cancelar|Buscar|Buscar contato|Localizar|Contatos|[a-z_]+)$/.test(l));
+          .filter((l) => l && !icon.test(l) && !/^(Modo de busca|Nome ou telefone|Cancelar|Buscar|Buscar contato|Localizar|Contatos)$/.test(l));
         return { resultados: lines };
-      });
+      }, ICON_LINE.source);
     } finally {
       await closeOverlays(page);
     }
@@ -1329,19 +1628,19 @@ export const createContact = ({ name, phone }) =>
     if (existingPhone) {
       const index = existing.resultados.indexOf(existingPhone);
       const existingName = existing.resultados.find((line, i) => i < index && /[a-zA-ZÀ-ú]/.test(line) && !line.startsWith("·"));
-      throw new Error(`A contact with this phone already exists${existingName ? ` as "${existingName}"` : ""}. Nothing was created.`);
+      fail(CODES.DUPLICATE, `Já existe um contato com esse telefone${existingName ? ` ("${existingName}")` : ""}. Nada foi criado.`);
     }
     await openContactsMenuItem(page, "Novo contato");
     try {
       const inputs = await page.$$(".cdk-overlay-container :is(mat-dialog-container, .mat-mdc-dialog-container) input[type=text], .cdk-overlay-container :is(mat-dialog-container, .mat-mdc-dialog-container) input[type=tel]");
-      if (inputs.length < 2) throw new Error("New contact fields not found.");
+      if (inputs.length < 2) fail(CODES.UI_CHANGED, "Não achei os campos de novo contato.");
       await inputs[0].type(name);
       await inputs[1].type(phone);
-      if (!(await clickOverlay(page, "button", "^Criar contato$"))) throw new Error("Create button not found.");
+      if (!(await clickOverlay(page, "button", "^Criar contato$"))) fail(CODES.UI_CHANGED, "Não achei o botão Criar contato.");
       const closed = await waitDialogClosed(page, 15000).then(() => true).catch(() => false);
       if (!closed) {
         const message = await page.evaluate(() => document.querySelector(".cdk-overlay-container :is(mat-error, .mat-mdc-form-field-error, simple-snack-bar)")?.innerText.trim());
-        throw new Error(`Aspa did not confirm the new contact${message ? `: ${message}` : "."}`);
+        fail(CODES.NOT_VERIFIED, `O Aspa não confirmou o novo contato${message ? `: ${message}` : "."}`);
       }
       await sleep(1500);
       const check = await searchContactIn(page, name);
@@ -1353,10 +1652,10 @@ export const createContact = ({ name, phone }) =>
     }
   });
 
-export const setPromotionsBlocked = ({ index, contact, blocked }) =>
+export const setPromotionsBlocked = ({ index, contact, conversation_id, blocked }) =>
   exclusive(async () => {
     const page = await getWorkPage();
-    const match = await openConversation(page, { index, contact });
+    const match = await openConversation(page, { index, contact, conversation_id }, { write: true });
     const state = () =>
       page.evaluate(() => {
         const toggle = [...document.querySelectorAll("mat-slide-toggle")].find((t) => t.innerText.includes("Bloquear Promoções"));
@@ -1365,9 +1664,10 @@ export const setPromotionsBlocked = ({ index, contact, blocked }) =>
         return control.getAttribute("aria-checked") === "true" || control.checked === true;
       });
     const current = await state();
-    if (current === null) throw new Error("Promotions toggle not found in the contact panel.");
+    if (current === null) fail(CODES.UI_CHANGED, "Não achei a chave Bloquear Promoções no painel do contato.");
     let dialog;
     if (current !== blocked) {
+      await assertStillOn(page, match);
       await page.evaluate(() => {
         const toggle = [...document.querySelectorAll("mat-slide-toggle")].find((t) => t.innerText.includes("Bloquear Promoções"));
         toggle.querySelector("button[role=switch], input[type=checkbox]").click();
@@ -1396,10 +1696,11 @@ export const sessionStatus = () =>
 
 const REVIEW_TIMEOUT_MS = 20 * 60 * 1000;
 
-export function openDraft({ index, contact, text, timeoutMinutes }, { onClosed } = {}) {
+export function openDraft({ index, contact, conversation_id, text, timeoutMinutes }, { onClosed } = {}) {
   let reportOpened;
   const opened = new Promise((resolve) => (reportOpened = resolve));
   exclusive(async () => {
+    assertDisplay();
     interactive = "review";
     const limit = timeoutMinutes ? Math.min(Math.max(Number(timeoutMinutes), 1), 60) * 60000 : REVIEW_TIMEOUT_MS;
     let match = null;
@@ -1409,8 +1710,8 @@ export function openDraft({ index, contact, text, timeoutMinutes }, { onClosed }
       await closeBrowser();
       await ensureBrowser(true);
       const page = workPage;
-      match = await openConversation(page, { index, contact });
-      if (await assumeButton(page)) throw new Error("This conversation has no agent yet. Assume it (aspa_assume) before opening a draft.");
+      match = await openConversation(page, { index, contact, conversation_id }, { write: true });
+      if (await assumeButton(page)) fail(CODES.FORBIDDEN, "Esta conversa não é sua. Assuma a conversa (aspa_assume) antes de abrir um rascunho.");
       const filled = await page.evaluate((value) => {
         const box = document.querySelector("textarea.cdk-textarea-autosize");
         if (!box) return false;
@@ -1419,7 +1720,7 @@ export function openDraft({ index, contact, text, timeoutMinutes }, { onClosed }
         box.focus();
         return true;
       }, text);
-      if (!filled) throw new Error("Reply box not available. The 24h window may be closed; use a template instead.");
+      if (!filled) fail(CODES.FORBIDDEN, "A caixa de resposta não está disponível. A janela de 24 h pode estar fechada; use um template.");
       baseline = await countSent(page);
       lastSent = baseline;
       await page.bringToFront();
@@ -1436,15 +1737,15 @@ export function openDraft({ index, contact, text, timeoutMinutes }, { onClosed }
       }
       onClosed?.({ contact: match.contact, sent_by_user: lastSent > baseline, messages_sent: Math.max(0, lastSent - baseline), reason });
     } catch (error) {
-      reportOpened({ error: error.message });
+      reportOpened({ error });
       if (match) onClosed?.({ contact: match.contact, sent_by_user: lastSent > baseline, messages_sent: Math.max(0, lastSent - baseline), reason: "error" });
     } finally {
       interactive = null;
       await closeBrowser().catch(() => null);
     }
-  }).catch(() => null);
+  }).catch((error) => reportOpened({ error }));
   return opened.then((result) => {
-    if (result.error) throw new Error(result.error);
+    if (result.error) throw result.error;
     return result;
   });
 }

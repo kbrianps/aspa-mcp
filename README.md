@@ -7,7 +7,8 @@
   <img alt="Claude Code 2.1" src="https://img.shields.io/badge/Claude_Code-2.1-6200E9?logo=anthropic&logoColor=white">
   <img alt="Codex" src="https://img.shields.io/badge/Codex-testado-6200E9?logo=openai&logoColor=white">
   <img alt="Model Context Protocol" src="https://img.shields.io/badge/MCP-stdio-6200E9">
-  <img alt="Node.js 20+" src="https://img.shields.io/badge/Node.js-20%2B-6200E9?logo=nodedotjs&logoColor=white">
+  <img alt="Node.js 22.12+" src="https://img.shields.io/badge/Node.js-22.12%2B-6200E9?logo=nodedotjs&logoColor=white">
+  <img alt="MIT License" src="https://img.shields.io/badge/licen%C3%A7a-MIT-6200E9">
   <img alt="Transcrição local" src="https://img.shields.io/badge/Whisper-local-6200E9">
 </p>
 
@@ -35,7 +36,7 @@
 
 ## Início rápido
 
-Precisa de: Linux com systemd (Ubuntu testado), Node.js 20+, Google Chrome, uma conta no Aspa e um assistente de IA (Claude Code, Codex ou outro cliente de MCP).
+Precisa de: Linux com systemd (Ubuntu testado), Node.js 22.12 ou mais novo, Google Chrome, uma conta no Aspa e um assistente de IA (Claude Code, Codex ou outro cliente de MCP).
 
 1. **Baixar e instalar**
 
@@ -109,17 +110,17 @@ O **serviço em segundo plano** mantém um Chrome invisível logado no Aspa, exe
 | Sistema | Ubuntu 26.04.1 LTS (GNOME Shell 50.1, X11, kernel 7.0) |
 | Claude Code | 2.1.318 |
 | Modelo | Claude Opus 5.5 (`claude-opus-5-5`) |
-| Também testado em | Codex (outro atendente, Ubuntu, modo somente leitura) |
+| Também testado em | Codex CLI 0.167.0 (outro atendente, Ubuntu 26.04.1 LTS) |
 | Node.js | 22.23.2 |
 | Google Chrome | 157.0.8103.38 |
 | Python (transcrição) | 3.14.4 com faster-whisper 1.2.1, modelo `small`, CPU |
 | Data dos testes | novembro de 2026 |
 
-Testado de ponta a ponta: login, leitura, anexos (imagem, PDF, áudio), transcrição, envio de texto, anexo e template, concluir, reabrir, adiar, renomear contato e notificações no Ubuntu. Também testados: assumir, transferir, criar contato, janela de revisão, filtros, busca, estatísticas, responder citando e adiar até data. Anexos de vídeo: só download. No Codex, um segundo atendente testou a instalação, a configuração guiada e a leitura em modo somente leitura (detalhes em [Outros clientes](docs/outros-clientes.md)).
+Testado de ponta a ponta: login, leitura, anexos (imagem, PDF, áudio), transcrição, envio de texto, anexo e template, concluir, reabrir, adiar, renomear contato e notificações no Ubuntu. Também testados: assumir, transferir, criar contato, janela de revisão, filtros, busca, estatísticas, responder citando e adiar até data. Anexos de vídeo: só download. No Codex, um segundo atendente testou a instalação, a configuração guiada e a leitura, sem enviar nada (detalhes em [Outros clientes](docs/outros-clientes.md)).
 
 ## Segurança em uma frase
 
-Nada é enviado, transferido ou concluído sem a sua aprovação, e toda ação fica num registro de auditoria local. Detalhes em [Segurança e privacidade](docs/seguranca.md).
+Nada é enviado, transferido ou concluído sem a sua aprovação, toda ação confere antes se a conversa aberta é a certa, e tudo fica num registro de auditoria local. Detalhes em [Segurança e privacidade](docs/seguranca.md).
 
 ## Roadmap
 
@@ -143,3 +144,7 @@ Nada é enviado, transferido ou concluído sem a sua aprovação, e toda ação 
 - [ ] Jornadas e etiquetas, quando configuradas na conta
 - [ ] API oficial da Aspa no lugar da automação do painel, quando disponível
 - [ ] Webhook de mensagens: dispensar o navegador e oferecer conector para o claude.ai
+
+## Licença
+
+[MIT](LICENSE). Projeto independente, sem vínculo com a Aspa.

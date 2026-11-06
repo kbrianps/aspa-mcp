@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { call } from "./client.mjs";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 
@@ -34,12 +35,15 @@ export async function update({ restartService = true } = {}) {
   if (!pulled.ok) throw new Error(`git pull failed: ${pulled.out || pulled.error}`);
   let installed = "skipped (dependencies unchanged)";
   if (changedFiles.some((file) => /^package(-lock)?\.json$/.test(file))) {
-    const npm = await run("npm", ["install", "--no-fund", "--no-audit"], 300000);
-    if (!npm.ok) throw new Error(`npm install failed: ${npm.out || npm.error}`);
+    const npm = await run("npm", ["ci", "--omit=dev", "--ignore-scripts", "--no-fund", "--no-audit"], 300000);
+    if (!npm.ok) throw new Error(`npm ci failed: ${npm.out || npm.error}`);
     installed = "done";
   }
   let service = "not restarted";
-  if (restartService) {
+  const busy = restartService ? await call("health", {}, 10000).then((h) => h.interactive || (h.queue > 0 ? "queue" : null)).catch(() => null) : null;
+  if (busy) {
+    service = "not restarted: an Aspa window or action is in progress; run systemctl --user restart aspa-mcp when it finishes";
+  } else if (restartService) {
     const active = await run("systemctl", ["--user", "is-enabled", "aspa-mcp"]);
     if (active.ok) {
       const restarted = await run("systemctl", ["--user", "restart", "aspa-mcp"]);

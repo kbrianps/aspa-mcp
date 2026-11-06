@@ -1,15 +1,8 @@
 import { execFile } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
-import { ENV_FILE } from "./env-file.mjs";
+import { readEnvValues } from "./env-file.mjs";
 
 function secrets() {
-  const values = { ...process.env };
-  if (existsSync(ENV_FILE)) {
-    for (const line of readFileSync(ENV_FILE, "utf8").split("\n")) {
-      const match = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/);
-      if (match) values[match[1]] = match[2].replace(/^["']|["']$/g, "");
-    }
-  }
+  const values = { ...process.env, ...readEnvValues() };
   return {
     slackWebhookUrl: values.ASPA_SLACK_WEBHOOK_URL,
     slackBotToken: values.ASPA_SLACK_BOT_TOKEN,
@@ -62,16 +55,24 @@ async function post(name, url, options) {
 
 const ASPA_URL = "https://app.aspa.chat/atendimento";
 const KINDS = {
-  message: { emoji: "💬", title: "Nova mensagem no Aspa", hint: "Responda pelo Claude Code ou direto no Aspa" },
-  activity: { emoji: "🔄", title: "Nova atividade no Aspa", hint: "Responda pelo Claude Code ou direto no Aspa" },
-  new_conversation: { emoji: "🆕", title: "Nova conversa no Aspa", hint: "Assuma pelo Claude Code ou direto no Aspa" },
+  message: { emoji: "💬", title: "Nova mensagem no Aspa", hint: "Responda pelo seu assistente de IA ou direto no Aspa" },
+  activity: { emoji: "🔄", title: "Nova atividade no Aspa", hint: "Responda pelo seu assistente de IA ou direto no Aspa" },
+  new_conversation: { emoji: "🆕", title: "Nova conversa no Aspa", hint: "Assuma pelo seu assistente de IA ou direto no Aspa" },
   digest: { emoji: "🕘", title: "Mensagens recebidas fora do horário", hint: "Resumo enviado no início do seu expediente" },
-  session: { emoji: "⚠️", title: "Sessão do Aspa expirada", hint: "Peça ao Claude: _faz o login no Aspa_" },
+  session: { emoji: "⚠️", title: "Sessão do Aspa expirada", hint: "Peça ao seu assistente: _faz o login no Aspa_" },
+  degraded: { emoji: "🛠️", title: "Avisos do Aspa parados", hint: "Peça ao seu assistente: _roda o aspa_setup_check_" },
+  recovered: { emoji: "✅", title: "Avisos do Aspa voltaram", hint: "Nada a fazer" },
   test: { emoji: "✅", title: "Notificações do aspa-mcp funcionando", hint: "Este é um aviso de teste" },
 };
 
-function slackPayload({ kind, contact, contacts, headline, time, agent }) {
+export const slackEscape = (value) => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+function slackPayload({ kind, contact: rawContact, contacts: rawContacts, headline: rawHeadline, time, agent: rawAgent }) {
   const info = KINDS[kind] ?? KINDS.message;
+  const contact = rawContact && slackEscape(rawContact);
+  const contacts = rawContacts?.map(slackEscape);
+  const headline = rawHeadline && slackEscape(rawHeadline);
+  const agent = rawAgent && slackEscape(rawAgent);
   const lines = [];
   if (contact) lines.push(`*${contact}*${time ? `   ·   ${time}` : ""}${agent ? `   ·   👤 ${agent}` : ""}`);
   if (contacts?.length) lines.push(contacts.map((name) => `•  ${name}`).join("\n"));

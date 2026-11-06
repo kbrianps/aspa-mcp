@@ -7,7 +7,8 @@
   <img alt="Claude Code 2.1" src="https://img.shields.io/badge/Claude_Code-2.1-6200E9?logo=anthropic&logoColor=white">
   <img alt="Codex" src="https://img.shields.io/badge/Codex-tested-6200E9?logo=openai&logoColor=white">
   <img alt="Model Context Protocol" src="https://img.shields.io/badge/MCP-stdio-6200E9">
-  <img alt="Node.js 20+" src="https://img.shields.io/badge/Node.js-20%2B-6200E9?logo=nodedotjs&logoColor=white">
+  <img alt="Node.js 22.12+" src="https://img.shields.io/badge/Node.js-22.12%2B-6200E9?logo=nodedotjs&logoColor=white">
+  <img alt="MIT License" src="https://img.shields.io/badge/license-MIT-6200E9">
   <img alt="Local transcription" src="https://img.shields.io/badge/Whisper-local-6200E9">
 </p>
 
@@ -35,7 +36,7 @@
 
 ## Quick start
 
-You need: Linux with systemd (Ubuntu tested), Node.js 20+, Google Chrome, an Aspa account and an AI assistant (Claude Code, Codex or another MCP client).
+You need: Linux with systemd (Ubuntu tested), Node.js 22.12 or newer, Google Chrome, an Aspa account and an AI assistant (Claude Code, Codex or another MCP client).
 
 1. **Download and install**
 
@@ -109,17 +110,17 @@ The **background service** keeps a headless Chrome logged into Aspa, runs one pa
 | System | Ubuntu 26.04.1 LTS (GNOME Shell 50.1, X11, kernel 7.0) |
 | Claude Code | 2.1.318 |
 | Model | Claude Opus 5.5 (`claude-opus-5-5`) |
-| Also tested on | Codex (another support agent, Ubuntu, read-only mode) |
+| Also tested on | Codex CLI 0.167.0 (another support agent, Ubuntu 26.04.1 LTS) |
 | Node.js | 22.23.2 |
 | Google Chrome | 157.0.8103.38 |
 | Python (transcription) | 3.14.4 with faster-whisper 1.2.1, `small` model, CPU |
 | Test date | November 2026 |
 
-Tested end to end: login, reading, attachments (image, PDF, audio), transcription, sending text, attachments and templates, conclude, reopen, snooze, rename contact and Ubuntu notifications. Also tested: assume, transfer, create contact, review window, filters, search, statistics, reply quoting a message and snooze until a date. Video attachments: download only. On Codex, a second support agent tested installation, guided setup and reading in read-only mode (details in [Other clients](docs/en/other-clients.md)).
+Tested end to end: login, reading, attachments (image, PDF, audio), transcription, sending text, attachments and templates, conclude, reopen, snooze, rename contact and Ubuntu notifications. Also tested: assume, transfer, create contact, review window, filters, search, statistics, reply quoting a message and snooze until a date. Video attachments: download only. On Codex, a second support agent tested installation, guided setup and reading, without sending anything (details in [Other clients](docs/en/other-clients.md)).
 
 ## Security in one sentence
 
-Nothing is sent, transferred or concluded without your approval, and every action is written to a local audit log. Details in [Security and privacy](docs/en/security.md).
+Nothing is sent, transferred or concluded without your approval, every action first checks that the open conversation is the right one, and everything is written to a local audit log. Details in [Security and privacy](docs/en/security.md).
 
 ## Roadmap
 
@@ -143,3 +144,7 @@ Nothing is sent, transferred or concluded without your approval, and every actio
 - [ ] Journeys and tags, once configured in the account
 - [ ] Official Aspa API instead of panel automation, when available
 - [ ] Message webhook: drop the browser and offer a claude.ai connector
+
+## License
+
+[MIT](LICENSE). Independent project, not affiliated with Aspa.

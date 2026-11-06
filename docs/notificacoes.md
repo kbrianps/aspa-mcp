@@ -163,9 +163,9 @@ O aviso chega numa conversa privada com o app **Aspa Chat** (no Slack, em **Apps
 ### 6.4 Celular sem Slack (app ntfy, opcional)
 
 1. Instale o app **ntfy** (Android ou iOS).
-2. Invente um tópico **longo e aleatório**, por exemplo `aspa-k3j9x2mq8v7tpl4wz` (quem souber o nome lê os avisos).
+2. Gere um tópico **longo e aleatório** só seu, por exemplo com `echo aspa-$(openssl rand -hex 12)` (quem souber o nome lê os avisos; não copie exemplos).
 3. No app, toque em **+** e assine esse tópico.
-4. No `~/.config/aspa-mcp/env`: `ASPA_NTFY_URL=https://ntfy.sh/aspa-k3j9x2mq8v7tpl4wz`
+4. No `~/.config/aspa-mcp/env`: `ASPA_NTFY_URL=https://ntfy.sh/<tópico-longo-e-aleatório>`
 5. Coloque `ntfy` em `notificacoes.canais`, reinicie e teste.
 
 > O ntfy.sh é um servidor público de terceiros: por padrão o aviso **não** mostra o nome do contato. Para mostrar, adicione `ASPA_NTFY_SHOW_CONTACT=1` no `env`.

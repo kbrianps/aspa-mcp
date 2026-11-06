@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Syntax
+        run: for file in *.mjs scripts/*.mjs test/*.mjs; do node --check "$file"; done
+      - name: Python syntax
+        run: python3 -m py_compile transcribe.py
+      - name: YAML templates and examples
+        run: node scripts/validate-yaml.mjs
+      - name: Tests
+        run: npm test
+      - name: No secrets in the repository
+        run: |
+          if git grep -nE 'xox[abposr]-[0-9A-Za-z-]{10,}|hooks\.slack\.com/services/[A-Z0-9]|ntfy\.sh/[A-Za-z0-9_-]{8,}' -- . ':!.github/workflows/ci.yml'; then
+            echo "Possible secret found"; exit 1
+          fi
+      - name: No private names in the repository
+        env:
+          DENYLIST: ${{ secrets.NAME_DENYLIST }}
+        run: |
+          if [ -z "$DENYLIST" ]; then echo "NAME_DENYLIST secret not set; skipping"; exit 0; fi
+          printf '%s\n' "$DENYLIST" | tr ',' '\n' | sed '/^\s*$/d' > /tmp/denylist
+          if git grep -qiFf /tmp/denylist -- . ':!package-lock.json'; then
+            echo "A private name from NAME_DENYLIST appears in the repository"; exit 1
+          fi

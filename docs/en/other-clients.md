@@ -4,7 +4,13 @@
 
 aspa-mcp is a standard MCP server (stdio): it works in any client that supports MCP, not only in Claude Code. The background service is the same for all of them.
 
-> **Recommended: read-only mode** (`ASPA_READ_ONLY=1`) in clients other than Claude Code. In this mode the MCP offers the 14 read tools (list, read, search, statistics, guidelines, attachments, transcription, audit) plus login and the review window (`aspa_open_draft`), where you are the one who clicks send in Aspa: no AI agent can send, transfer, snooze or close anything on its own.
+> **Recommended: read-only mode** (`ASPA_READ_ONLY=1`) in clients other than Claude Code. In this mode the MCP offers 21 tools: the 15 read tools (list, read, search, statistics, guidelines, documents, attachments, transcription, audit, checklist), login, the review window (`aspa_open_draft`, where you are the one who clicks send in Aspa) and the 4 local setup tools (settings, documents, Slack ID and alert test). No AI agent can send, transfer, snooze or close anything on its own, and code updates are left out.
+>
+> **Check that it worked:** ask *"Which Aspa tools do you have?"*. In read-only mode none of them may send, transfer, snooze or conclude. If they show up (36 tools in total), the client was registered without `ASPA_READ_ONLY=1`: remove it and register again.
+>
+> **To enforce it on the whole computer**, also put `ASPA_READ_ONLY=1` in `~/.config/aspa-mcp/env` and restart the service (`systemctl --user restart aspa-mcp`). The service itself then refuses every write, even if a client is registered without the variable.
+>
+> **Limit:** read-only mode protects the MCP tools. An agent that also has terminal (shell) access can run commands on its own; in those clients, approve each command.
 >
 > **LGPD (Brazil's data protection law):** when you read conversations through another client, the customers' content goes to that model's provider (OpenAI, Google, xAI, DeepSeek, Moonshot, Zhipu...). Check whether this is allowed before using it with real conversations.
 
@@ -29,6 +35,6 @@ Use only the aspa MCP tools aspa_statistics and aspa_get_guidelines. Answer: how
 | --- | --- |
 | Claude Code 2.1 + Claude Opus 5.5 | Tested end to end |
 | Antigravity (agy) 1.5.2 | Found and read the tools; in non-interactive mode it stops before calling them (needs approval). Test in interactive mode |
-| Codex (a second support agent, Ubuntu, read-only mode) | Tested: installation, update, guided setup (checklist and adjustments), statistics, guidelines, listing, conversations with no reply, reading without marking as read, summary and draft in the team's tone. Codex did not try to take over or reply to another support agent's conversation. Still to test: Slack notification, security review of the tools and the review window on a conversation of their own |
+| Codex CLI 0.167 (a second support agent, Ubuntu 26.04.1 LTS) | Tested: installation, update, guided setup (checklist, settings and Slack ID), statistics, guidelines, listing, conversations with no reply, reading without marking as read, summary and draft in the team's tone. Codex did not try to take over or reply to another support agent's conversation and sent nothing. The security review showed the registration had been made without `ASPA_READ_ONLY=1` (36 tools); that is why the check above and the `env` file option were added. Still to test: Slack token and the review window on a conversation of their own |
 | opencode 2.2.5 (DeepSeek, GLM, Kimi via Morph) | Registered; test in interactive mode |
 | Grok Bot 0.78, Z Code 3.16 | Configure in the app and test |

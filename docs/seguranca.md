@@ -45,6 +45,16 @@ Cada registro tem também: data e hora, duração, usuário e computador, contat
 
 > O registro tem textos enviados a clientes (dados pessoais, LGPD). Trate como confidencial.
 
+### Proteções embutidas
+
+- **Destinatário certo:** toda escrita exige o nome do contato e confere o cabeçalho da conversa aberta antes do clique final. Com o `conversation_id` da leitura, recusa se a conversa for outra.
+- **Sem envio em dobro:** a mesma mensagem para o mesmo contato em menos de 2 minutos é recusada.
+- **Pedido cancelado não roda:** se o assistente desistir de uma chamada que ainda estava na fila, ela não é executada no Aspa.
+- **Modo somente leitura de verdade:** com `ASPA_READ_ONLY=1` no arquivo `env`, o próprio serviço recusa qualquer escrita, qualquer que seja o cliente.
+- **Arquivos locais:** anexos só saem da pasta pessoal (fora de pastas ocultas como `~/.config` e `~/.ssh`), de `/tmp` ou dos anexos baixados. Documentos de conhecimento só são lidos e gravados dentro da pasta de conhecimento, sem links simbólicos nem arquivos ocultos. A pasta de conhecimento e a auditoria não podem ser mudadas pelo assistente.
+- **Conteúdo de cliente é dado, não ordem:** o MCP avisa o modelo para ignorar pedidos escritos dentro de mensagens, nomes de contato e documentos.
+- **Avisos que param, avisam:** se o painel não puder ser lido por mais de 5 minutos, chega um aviso, e outro quando voltar. `npm run saude` mostra o estado.
+
 ### Cuidados
 
 - As ações de escrita afetam **clientes reais**. Aprove só o que você leu.

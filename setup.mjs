@@ -1,24 +1,16 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, extname, join, relative, resolve, sep } from "node:path";
+import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { dirname, extname, join, relative, sep } from "node:path";
 import { isMap, parseDocument } from "yaml";
 import { CONFIG_DIR, loadConfig, PERSONAL_CONFIG, TEAM_CONFIG } from "./config.mjs";
-import { ENV_FILE } from "./env-file.mjs";
-import { listDocuments, searchDocuments } from "./knowledge.mjs";
+import { ENV_FILE, readEnvValues } from "./env-file.mjs";
+import { CODES, fail } from "./errors.mjs";
+import { insideFolder, listDocuments, searchDocuments } from "./knowledge.mjs";
 import { transcriptionEnabled } from "./transcription.mjs";
 
 const FILES = { equipe: TEAM_CONFIG, pessoal: PERSONAL_CONFIG };
 const TEMPLATES = new URL("./modelos/", import.meta.url).pathname;
 const TEXT_EXTENSIONS = new Set([".md", ".txt", ".csv", ".json", ".yaml", ".yml"]);
-
-function readEnvFile() {
-  if (!existsSync(ENV_FILE)) return {};
-  const values = {};
-  for (const line of readFileSync(ENV_FILE, "utf8").split("\n")) {
-    const match = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/);
-    if (match) values[match[1]] = match[2];
-  }
-  return values;
-}
+const EDITABLE_SECTIONS = /^(empresa|rascunhos|notificacoes)$/;
 
 export function setEnvValue(key, value) {
   mkdirSync(dirname(ENV_FILE), { recursive: true });
@@ -28,6 +20,7 @@ export function setEnvValue(key, value) {
   if (index >= 0) lines[index] = `${key}=${value}`;
   else lines.push(`${key}=${value}`);
   writeFileSync(ENV_FILE, `${lines.join("\n")}\n`, { mode: 0o600 });
+  chmodSync(ENV_FILE, 0o600);
 }
 
 function ensureConfigFiles() {
@@ -42,9 +35,9 @@ function ensureConfigFiles() {
   return created;
 }
 
-export function setupCheck({ service, session }) {
+export function setupCheck({ service, session, health }) {
   const { config, sources, errors } = loadConfig();
-  const env = readEnvFile();
+  const env = readEnvValues();
   const docs = listDocuments(config.conhecimento.pasta).filter((d) => !/^LEIA-ME/i.test(d.arquivo));
   const sampleDocs = [...new Set(searchDocuments(config.conhecimento.pasta, "EXEMPLO FICTÍCIO", 100).map((h) => h.arquivo))];
   const items = [];
@@ -100,6 +93,20 @@ export function setupCheck({ service, session }) {
     `Notificações (${config.notificacoes.abas.join(", ")}; ${config.notificacoes.dias.join(",")} ${config.notificacoes.horario.inicio}-${config.notificacoes.horario.fim})`,
     "Pergunte quando o usuário quer ser avisado e grave em notificacoes no arquivo pessoal.",
   );
+  if (health) {
+    const watcher = health.watcher ?? {};
+    add(
+      "avisos_funcionando",
+      !watcher.degraded,
+      `Leitura do painel para os avisos${watcher.lastError ? ` (último erro: ${watcher.lastError})` : ""}`,
+      "Os avisos pararam: rode no terminal journalctl --user -u aspa-mcp -n 50 e systemctl --user restart aspa-mcp. Se continuar, o layout do Aspa pode ter mudado.",
+    );
+    items.push({
+      id: "modo",
+      status: "info",
+      item: health.read_only ? "Modo somente leitura: nada é enviado pelo assistente; use a janela de revisão" : "Modo completo: envios só com a sua aprovação",
+    });
+  }
   items.push({
     id: "transcricao",
     status: transcriptionEnabled() ? "ok" : "opcional",
@@ -119,17 +126,24 @@ export function setupCheck({ service, session }) {
 
 export function updateSettings({ file, changes }) {
   const target = FILES[file];
-  if (!target) throw new Error('file must be "equipe" or "pessoal".');
-  if (!changes || typeof changes !== "object" || !Object.keys(changes).length) throw new Error("No changes given.");
+  if (!target) fail(CODES.INVALID_INPUT, 'file precisa ser "equipe" ou "pessoal".');
+  if (!changes || typeof changes !== "object" || !Object.keys(changes).length) fail(CODES.INVALID_INPUT, "Nenhuma alteração informada.");
+  for (const path of Object.keys(changes)) {
+    const keys = path.split(".").filter(Boolean);
+    if (/^(conhecimento|auditoria)$/.test(keys[0] ?? "")) {
+      fail(CODES.FORBIDDEN, `Por segurança, "${path}" só pode ser mudado editando o arquivo ${target} à mão.`);
+    }
+    if (!keys.length || !EDITABLE_SECTIONS.test(keys[0])) {
+      fail(CODES.INVALID_INPUT, `Configuração desconhecida "${path}". Use caminhos dentro de empresa, rascunhos ou notificacoes.`);
+    }
+  }
   const created = ensureConfigFiles();
   const original = readFileSync(target, "utf8");
+  const errorsBefore = new Set(loadConfig().errors);
   const doc = parseDocument(original);
   const applied = [];
   for (const [path, value] of Object.entries(changes)) {
     const keys = path.split(".").filter(Boolean);
-    if (!keys.length || !/^(empresa|rascunhos|conhecimento|auditoria|notificacoes)$/.test(keys[0])) {
-      throw new Error(`Unknown setting "${path}". Use paths under empresa, rascunhos, conhecimento, auditoria or notificacoes.`);
-    }
     for (let depth = 1; depth < keys.length; depth++) {
       const prefix = keys.slice(0, depth);
       if (!isMap(doc.getIn(prefix, true))) doc.setIn(prefix, doc.createNode({}));
@@ -139,11 +153,13 @@ export function updateSettings({ file, changes }) {
   }
   const backup = `${target}.bak`;
   writeFileSync(backup, original);
-  writeFileSync(target, doc.toString());
-  const { errors } = loadConfig();
-  if (errors.length) {
+  try {
+    writeFileSync(target, doc.toString());
+    const newErrors = loadConfig().errors.filter((error) => !errorsBefore.has(error));
+    if (newErrors.length) fail(CODES.INVALID_INPUT, `Nada foi salvo: os valores são inválidos: ${newErrors.join("; ")}`);
+  } catch (error) {
     writeFileSync(target, original);
-    throw new Error(`Settings not saved, they are invalid: ${errors.join("; ")}`);
+    throw error;
   }
   let overridden;
   if (file === "equipe" && existsSync(PERSONAL_CONFIG)) {
@@ -162,16 +178,15 @@ export function updateSettings({ file, changes }) {
 
 export function saveKnowledge({ path, content, overwrite = false }) {
   const { config } = loadConfig();
-  const base = resolve(config.conhecimento.pasta);
-  const cleanPath = String(path ?? "").trim();
-  if (!cleanPath) throw new Error("path is required, e.g. produtos/plano-basico.md");
-  const target = resolve(base, cleanPath);
-  if (!target.startsWith(base + sep)) throw new Error("The document must stay inside the knowledge folder.");
-  if (!TEXT_EXTENSIONS.has(extname(target).toLowerCase())) throw new Error("Use a text format: .md, .txt, .csv, .json or .yaml.");
-  if (/EXEMPLO FICTÍCIO/i.test(content)) throw new Error("The content still has the 'EXEMPLO FICTÍCIO' marker. Write the real content.");
+  mkdirSync(config.conhecimento.pasta, { recursive: true });
+  const { base, path: target } = insideFolder(config.conhecimento.pasta, path);
+  if (!TEXT_EXTENSIONS.has(extname(target).toLowerCase())) fail(CODES.FORBIDDEN, "Use um formato de texto: .md, .txt, .csv, .json ou .yaml.");
+  if (/EXEMPLO FICTÍCIO/i.test(content)) fail(CODES.INVALID_INPUT, "O conteúdo ainda tem a marca 'EXEMPLO FICTÍCIO'. Escreva o conteúdo real.");
   const exists = existsSync(target);
-  if (exists && !overwrite) throw new Error(`${relative(base, target)} already exists. Pass overwrite=true to replace it (a .bak copy is kept).`);
+  if (exists && lstatSync(target).isSymbolicLink()) fail(CODES.FORBIDDEN, "O documento é um link simbólico; não vou sobrescrever.");
+  if (exists && !overwrite) fail(CODES.DUPLICATE, `${relative(base, target)} já existe. Use overwrite=true para substituir (uma cópia .bak é mantida).`);
   mkdirSync(dirname(target), { recursive: true });
+  if (!(realpathSync(dirname(target)) + sep).startsWith(base + sep)) fail(CODES.FORBIDDEN, "O documento precisa ficar dentro da pasta de conhecimento.");
   if (exists) copyFileSync(target, `${target}.bak`);
   writeFileSync(target, content.endsWith("\n") ? content : `${content}\n`);
   return { saved: true, file: relative(base, target), folder: base, replaced: exists };

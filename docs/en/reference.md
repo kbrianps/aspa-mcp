@@ -20,11 +20,11 @@
 | Tool | Type | What it does |
 | --- | --- | --- |
 | `aspa_setup_check` | setup | Checklist of what is ready and what is missing, with the next step |
-| `aspa_update_settings` | setup | Changes `equipe.yaml` or `pessoal.yaml` (keeps comments, saves a `.bak`, validates and rolls back if invalid) |
+| `aspa_update_settings` | setup | Changes `empresa`, `rascunhos` and `notificacoes` in `equipe.yaml` or `pessoal.yaml` (keeps comments, saves a `.bak`, validates and rolls back if invalid). The knowledge folder and audit settings can only be changed by editing the file by hand |
 | `aspa_save_knowledge` | setup | Creates or updates a document in the knowledge folder |
 | `aspa_configure_slack` | setup | Saves your Slack member ID (you paste the token yourself) |
 | `aspa_test_notifications` | setup | Sends a test notification and shows what failed |
-| `aspa_update` | setup | Updates aspa-mcp to the latest version and restarts the service |
+| `aspa_update` | setup | Updates aspa-mcp to the latest version and restarts the service (not in read-only mode; does not restart while a window or action is in progress) |
 | `aspa_audit_log` | read | Audit log of the actions taken in Aspa (filters: contact, action, date) |
 | `aspa_get_guidelines` | read | Company, tone, signature, time-of-day greeting, rules, examples, notifications and list of documents |
 | `aspa_search_knowledge` | read | Searches the documents (accent-insensitive) |
@@ -42,7 +42,7 @@
 | `aspa_list_templates` | read | Approved WhatsApp templates |
 | `aspa_send_message` | write | Free text (24-hour window) |
 | `aspa_send_template` | write | Template with `variables` |
-| `aspa_send_attachment` | write | Local file (up to 16 MB) with caption |
+| `aspa_send_attachment` | write | Local file (up to 16 MB) with caption; only from your home folder (outside hidden folders), `/tmp` or downloaded attachments |
 | `aspa_open_draft` | window | Opens Aspa with the draft in the message box so you can review and send it |
 | `aspa_reply_to_message` | write | Replies quoting a message (`messageIndex`) |
 | `aspa_assume` | write | Takes over a conversation with no agent or assigned to another agent |
@@ -58,7 +58,16 @@
 
 Write tools verify the result in the panel and return an error instead of reporting success when the action did not work.
 
-Setup tools only touch your local files (never Aspa) and are also available in read-only mode. The MCP also offers the `configurar` prompt (in Claude Code: `/mcp__aspa__configurar`).
+Before acting, write tools:
+
+1. Require the contact name (`contact`); `index` alone is not enough and only tells apart contacts with the same name.
+2. Check that the header of the open conversation matches the requested contact, right after opening it and again before the final click.
+3. With the `conversation_id` returned by `aspa_read_conversation`, refuse the action if the open conversation is a different one.
+4. Refuse the same message to the same contact within 2 minutes, unless `confirm_duplicate: true` is passed.
+
+Errors end with a stable code, such as `(código: WRONG_CONVERSATION)`: `SESSION_EXPIRED`, `BUSY`, `NOT_FOUND`, `AMBIGUOUS`, `WRONG_CONVERSATION`, `UI_CHANGED`, `TIMEOUT`, `CANCELLED`, `DUPLICATE`, `INVALID_INPUT`, `FORBIDDEN`, `NO_DISPLAY`, `NOT_VERIFIED`, `DAEMON_DOWN` or `INTERNAL`. With `NOT_VERIFIED`, the action may have happened: check Aspa before retrying.
+
+Setup tools only touch your local files (never Aspa) and, except `aspa_update`, are also available in read-only mode. The MCP also offers the `configurar` prompt (in Claude Code: `/mcp__aspa__configurar`).
 
 ### Environment variables
 
@@ -77,7 +86,7 @@ They live in `~/.config/aspa-mcp/env` (restart the service afterwards). Usage pr
 | `ASPA_PROFILE_DIR` | `~/.local/share/aspa-mcp/profile` | Profile with the Aspa session |
 | `ASPA_CACHE_DIR` | `~/.cache/aspa-mcp` | Downloaded attachments |
 | `ASPA_SOCKET` | `$XDG_RUNTIME_DIR/aspa-mcp.sock` | Service socket |
-| `ASPA_READ_ONLY` | `0` | `1` exposes only the read tools, login and the review window (use it in other clients) |
+| `ASPA_READ_ONLY` | `0` | `1` exposes only the read tools, the local setup tools, login and the review window (use it in other clients). In the `env` file it applies to the whole computer and the service refuses every write |
 | `ASPA_WATCH` | `1` | `0` turns off the watcher |
 | `ASPA_WATCH_INTERVAL_MS` | `20000` | Watcher interval |
 | `ASPA_WHISPER_DIR` | `/var/tmp/aspa-mcp/whisper` | Transcription install location |
@@ -97,7 +106,9 @@ They live in `~/.config/aspa-mcp/env` (restart the service afterwards). Usage pr
 | `npm run auditoria -- [quantidade] [contato]` | Shows the audit log |
 | `npm run setup-transcribe` | Installs local transcription |
 | `npm run atualizar` | Updates aspa-mcp and restarts the service |
-| `npm run slack -- [seu ID]` | Sets up Slack notifications: asks for the token with hidden typing, validates, saves and tests |
+| `npm run saude` | Shows version, Chrome, queue and whether alerts are working |
+| `npm test` | Runs the automated tests |
+| `npm run slack -- [your ID]` | Sets up Slack notifications: asks for the token with hidden typing, validates, saves and tests |
 
 ### Technical limitations
 

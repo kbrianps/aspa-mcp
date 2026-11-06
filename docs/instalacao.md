@@ -9,7 +9,7 @@
 | Item | Como conferir |
 | --- | --- |
 | Linux com systemd (Ubuntu recomendado) | `systemctl --user status` funciona |
-| Node.js 20 ou mais novo | `node --version` |
+| Node.js 22.12 ou mais novo | `node --version` |
 | Google Chrome | `google-chrome --version` |
 | Claude Code | `claude --version` |
 | Conta no Aspa com acesso ao painel de atendimento | você consegue entrar em https://app.aspa.chat |

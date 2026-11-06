@@ -161,9 +161,9 @@ The notification arrives in a private conversation with the **Aspa Chat** app (i
 ### 6.4 Phone without Slack (ntfy app, optional)
 
 1. Install the **ntfy** app (Android or iOS).
-2. Make up a **long, random** topic, for example `aspa-k3j9x2mq8v7tpl4wz` (anyone who knows the name can read the notifications).
+2. Generate a **long, random** topic of your own, for example with `echo aspa-$(openssl rand -hex 12)` (anyone who knows the name can read the notifications; do not copy examples).
 3. In the app, tap **+** and subscribe to that topic.
-4. In `~/.config/aspa-mcp/env`: `ASPA_NTFY_URL=https://ntfy.sh/aspa-k3j9x2mq8v7tpl4wz`
+4. In `~/.config/aspa-mcp/env`: `ASPA_NTFY_URL=https://ntfy.sh/<long-random-topic>`
 5. Add `ntfy` to `notificacoes.canais`, restart and test.
 
 > ntfy.sh is a public third-party server: by default the notification does **not** show the contact name. To show it, add `ASPA_NTFY_SHOW_CONTACT=1` to `env`.

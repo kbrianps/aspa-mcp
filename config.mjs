@@ -58,12 +58,24 @@ function merge(base, override) {
 
 function readYaml(path, errors) {
   if (!existsSync(path)) return null;
+  let data;
   try {
-    return parse(readFileSync(path, "utf8")) ?? {};
+    data = parse(readFileSync(path, "utf8")) ?? {};
   } catch (error) {
     errors.push(`${path}: ${error.message.split("\n")[0]}`);
     return null;
   }
+  if (!isObject(data)) {
+    errors.push(`${path}: o arquivo precisa ter seções como empresa, rascunhos e notificacoes`);
+    return {};
+  }
+  for (const section of Object.keys(DEFAULTS)) {
+    if (data[section] !== undefined && data[section] !== null && !isObject(data[section])) {
+      errors.push(`${section}: precisa ser uma seção com campos, não um valor solto (${path}); usando o padrão`);
+      delete data[section];
+    }
+  }
+  return data;
 }
 
 const expandHome = (path) => (typeof path === "string" && path.startsWith("~/") ? join(homedir(), path.slice(2)) : path);
@@ -71,6 +83,16 @@ const asList = (value) => (Array.isArray(value) ? value : value ? [value] : []);
 const validTime = (value) => typeof value === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 
 function validate(config, errors) {
+  for (const [section, defaults] of Object.entries(DEFAULTS)) {
+    if (!isObject(config[section])) {
+      errors.push(`${section}: precisa ser uma seção com campos, não um valor solto; usando o padrão`);
+      config[section] = structuredClone(defaults);
+    }
+  }
+  if (!isObject(config.notificacoes.horario)) {
+    errors.push("notificacoes.horario: use inicio e fim no formato HH:MM");
+    config.notificacoes.horario = { ...DEFAULTS.notificacoes.horario };
+  }
   const n = config.notificacoes;
   const filtered = (field, allowed) => {
     const values = asList(n[field]).map((v) => String(v).toLowerCase());
@@ -103,6 +125,14 @@ function validate(config, errors) {
   config.rascunhos.sempre = asList(config.rascunhos.sempre);
   config.rascunhos.nunca = asList(config.rascunhos.nunca);
   config.rascunhos.exemplos = asList(config.rascunhos.exemplos);
+  if (typeof config.conhecimento.pasta !== "string" || !config.conhecimento.pasta.trim()) {
+    errors.push("conhecimento.pasta: informe o caminho de uma pasta");
+    config.conhecimento.pasta = DEFAULTS.conhecimento.pasta;
+  }
+  if (typeof config.auditoria.arquivo !== "string") {
+    errors.push("auditoria.arquivo: informe o caminho de um arquivo ou deixe vazio");
+    config.auditoria.arquivo = "";
+  }
   config.conhecimento.pasta = expandHome(config.conhecimento.pasta);
   config.auditoria.arquivo = expandHome(config.auditoria.arquivo);
   return config;

@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { extname, join, relative, resolve, sep } from "node:path";
+import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { extname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { CODES, fail } from "./errors.mjs";
 
 const TEXT_EXTENSIONS = new Set([".md", ".markdown", ".txt", ".csv", ".json", ".yaml", ".yml"]);
 const MAX_CHARS = 120000;
@@ -8,7 +9,7 @@ const MAX_CHARS = 120000;
 function walk(folder) {
   const files = [];
   for (const entry of readdirSync(folder, { withFileTypes: true })) {
-    if (entry.name.startsWith(".")) continue;
+    if (entry.name.startsWith(".") || entry.isSymbolicLink()) continue;
     const path = join(folder, entry.name);
     if (entry.isDirectory()) files.push(...walk(path));
     else if (TEXT_EXTENSIONS.has(extname(entry.name).toLowerCase()) || extname(entry.name).toLowerCase() === ".pdf") files.push(path);
@@ -47,12 +48,31 @@ export function listDocuments(folder) {
   });
 }
 
+export const DOCUMENT_EXTENSIONS = new Set([...TEXT_EXTENSIONS, ".pdf"]);
+
+export function insideFolder(folder, file) {
+  const base = realpathSync(resolve(folder));
+  const relativePath = String(file ?? "").trim();
+  if (!relativePath || isAbsolute(relativePath)) fail(CODES.INVALID_INPUT, "Informe o caminho relativo do documento dentro da pasta de conhecimento.");
+  if (relativePath.split(/[\\/]/).some((part) => part.startsWith("."))) {
+    fail(CODES.FORBIDDEN, "Caminhos com pastas ou arquivos ocultos (começando com ponto) não são permitidos.");
+  }
+  if (!DOCUMENT_EXTENSIONS.has(extname(relativePath).toLowerCase())) {
+    fail(CODES.FORBIDDEN, "Formato não permitido. Use .md, .txt, .csv, .json, .yaml ou .pdf.");
+  }
+  return { base, path: resolve(base, relativePath) };
+}
+
+const within = (base, path) => path === base || path.startsWith(base + sep);
+
 function safePath(folder, file) {
-  const base = resolve(folder);
-  const path = resolve(base, file);
-  if (path !== base && !path.startsWith(base + sep)) throw new Error("Arquivo fora da pasta de conhecimento.");
-  if (!existsSync(path)) throw new Error(`Documento não encontrado: ${file}. Use aspa_get_guidelines para ver a lista.`);
-  return path;
+  if (!existsSync(folder)) fail(CODES.NOT_FOUND, "A pasta de conhecimento não existe.");
+  const { base, path } = insideFolder(folder, file);
+  if (!existsSync(path)) fail(CODES.NOT_FOUND, `Documento não encontrado: ${file}. Use aspa_get_guidelines para ver a lista.`);
+  const real = realpathSync(path);
+  if (!within(base, real) || real === base) fail(CODES.FORBIDDEN, "O documento aponta para fora da pasta de conhecimento.");
+  if (!statSync(real).isFile()) fail(CODES.INVALID_INPUT, "O caminho não é um arquivo.");
+  return real;
 }
 
 export function readDocument(folder, file) {
