@@ -34,6 +34,10 @@ rascunhos:
 conhecimento:
   pasta: ~/.config/aspa-mcp/conhecimento   # .md, .txt, .pdf, .csv, .json, .yaml (subpastas valem)
 
+auditoria:
+  arquivo: ~/.local/share/aspa-mcp/auditoria.jsonl   # registro de toda ação feita no Aspa
+  incluir_texto: true                                 # false: guarda só o tamanho dos textos
+
 notificacoes:
   abas: [meus]                         # meus, pendentes, todos
   apenas_mensagens_de_cliente: true    # true: só avisa quando chega mensagem do cliente

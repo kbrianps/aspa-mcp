@@ -25,6 +25,7 @@ export const DEFAULTS = {
     exemplos: [],
   },
   conhecimento: { pasta: join(CONFIG_DIR, "conhecimento") },
+  auditoria: { arquivo: "", incluir_texto: true },
   notificacoes: {
     abas: ["meus"],
     apenas_mensagens_de_cliente: true,
@@ -96,6 +97,7 @@ function validate(config, errors) {
   config.rascunhos.nunca = asList(config.rascunhos.nunca);
   config.rascunhos.exemplos = asList(config.rascunhos.exemplos);
   config.conhecimento.pasta = expandHome(config.conhecimento.pasta);
+  config.auditoria.arquivo = expandHome(config.auditoria.arquivo);
   return config;
 }
 

@@ -3,6 +3,7 @@ import { chmodSync, existsSync, mkdirSync, unlinkSync } from "node:fs";
 import { createServer } from "node:http";
 import { dirname } from "node:path";
 import * as aspa from "./aspa.mjs";
+import { recordAudit, WRITE_METHODS } from "./audit.mjs";
 import { SOCKET_PATH } from "./client.mjs";
 import { loadConfig, withinSchedule } from "./config.mjs";
 import { enabledChannels, notify } from "./notify.mjs";
@@ -37,11 +38,19 @@ const server = createServer((req, res) => {
   req.on("end", async () => {
     let payload;
     try {
-      const { method, args } = JSON.parse(body);
+      const { method, args = {} } = JSON.parse(body);
       const fn = methods[method];
       if (!fn) throw new Error(`Unknown method ${method}`);
       console.error(`[call] ${method}`);
-      payload = { ok: true, result: await fn(args ?? {}) };
+      const startedAt = Date.now();
+      try {
+        const result = await fn(args);
+        if (WRITE_METHODS.has(method)) recordAudit({ method, args, status: "ok", result, startedAt });
+        payload = { ok: true, result };
+      } catch (error) {
+        if (WRITE_METHODS.has(method)) recordAudit({ method, args, status: "erro", error: error.message, startedAt });
+        throw error;
+      }
     } catch (error) {
       console.error(`[call] failed: ${error.message}`);
       payload = { ok: false, error: error.message };
@@ -72,7 +81,7 @@ function handleActivity(item) {
   const cooldown = settings.intervalo_minimo_minutos * 60000;
   if (cooldown && Date.now() - (lastNotified.get(item.contact) ?? 0) < cooldown) return;
   lastNotified.set(item.contact, Date.now());
-  notify({ contact: item.contact, headline: item.unread ? "Nova mensagem" : "Nova atividade", time: item.time }, settings.canais);
+  notify({ kind: item.unread ? "message" : "activity", contact: item.contact, headline: item.unread ? "Nova mensagem" : "Nova atividade", time: item.time }, settings.canais);
 }
 
 function flushPending() {
@@ -84,11 +93,9 @@ function flushPending() {
   for (const contact of contacts) lastNotified.set(contact, Date.now());
   notify(
     {
-      contact: contacts.length === 1 ? contacts[0] : undefined,
-      headline:
-        contacts.length === 1
-          ? "Mensagem recebida fora do horário"
-          : `${contacts.length} conversas com mensagens fora do horário: ${contacts.join(", ")}`,
+      kind: "digest",
+      contacts,
+      headline: contacts.length === 1 ? "1 conversa com mensagem nova" : `${contacts.length} conversas com mensagens novas`,
     },
     settings.canais,
   );
@@ -114,7 +121,7 @@ if (WATCH) {
       onActivity: handleActivity,
       onSessionLost: () => {
         const settings = currentNotificationSettings();
-        if (settings.sessao_expirada) notify({ headline: "Sessão do Aspa expirada. Peça ao Claude para rodar aspa_login." }, settings.canais);
+        if (settings.sessao_expirada) notify({ kind: "session", headline: "Os avisos e as ações estão pausados até você entrar de novo." }, settings.canais);
       },
     }),
   );

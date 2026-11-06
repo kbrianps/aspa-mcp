@@ -4,6 +4,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { call } from "./client.mjs";
 import { greetingFor, loadConfig, PERSONAL_CONFIG, TEAM_CONFIG } from "./config.mjs";
+import { readAudit } from "./audit.mjs";
 import { listDocuments, readDocument, searchDocuments } from "./knowledge.mjs";
 
 const server = new McpServer(
@@ -174,6 +175,24 @@ server.registerTool(
       conhecimento: { pasta: config.conhecimento.pasta, documentos: listDocuments(config.conhecimento.pasta) },
     };
   }),
+);
+
+server.registerTool(
+  "aspa_audit_log",
+  {
+    description:
+      "Read the local audit log of every change made in Aspa through this server (messages, templates, attachments, transfers, snoozes, conclusions, reopenings, renames), including failed attempts. Newest first.",
+    inputSchema: {
+      limit: z.number().int().min(1).max(500).optional().describe("How many entries to return (default 20)."),
+      contact: z.string().optional().describe("Filter by part of the contact name."),
+      since: z.string().optional().describe("ISO date or datetime, e.g. 2026-11-05."),
+      action: z
+        .enum(["enviar_mensagem", "enviar_template", "enviar_anexo", "transferir", "adiar", "concluir", "reabrir", "renomear_contato"])
+        .optional(),
+    },
+    annotations: READ,
+  },
+  local((args) => readAudit(args)),
 );
 
 server.registerTool(

@@ -276,6 +276,10 @@ O que os nossos documentos dizem sobre prazo de cancelamento?
 ```
 
 ```text
+Mostra tudo o que foi enviado hoje pelo Aspa e se alguma ação deu erro.
+```
+
+```text
 Minha sessão do Aspa expirou, faz o login de novo.
 ```
 
@@ -513,8 +517,11 @@ O aviso chega numa conversa privada com o app **Aspa Chat** (no Slack, em **Apps
    ```
 
 5. **Install App** → **Install to Workspace** → **Permitir** (não pede canal).
-6. **OAuth & Permissions** → copie o **Bot User OAuth Token** (`xoxb-...`).
-7. Guarde o token num gerenciador de senhas e passe só para quem vai usar. **Não cole em chat, issue ou commit.**
+6. **Deixe o bot com cara de produto** (opcional, recomendado):
+   - **App Home** → **Your App's Presence in Slack** → **Edit**: em **Display Name (Bot Name)** coloque `Aspa Chat` e em **Default username** `aspachat`. Salve.
+   - **Basic Information** → **Display Information**: em **App icon** envie o arquivo [`assets/slack-icon.png`](assets/slack-icon.png) deste repositório e em **Background color** use `#6200E9`. Salve.
+7. **OAuth & Permissions** → copie o **Bot User OAuth Token** (`xoxb-...`).
+8. Guarde o token num gerenciador de senhas e passe só para quem vai usar. **Não cole em chat, issue ou commit.** Se vazar, use **OAuth & Permissions** → **Revoke All OAuth Tokens** e reinstale o app para gerar outro.
 
 > Erro "requires bot_user": falta o bloco `bot_user` no manifest. Erro "cannot be converted to username": o `display_name` tem acento ou espaço; use algo como `aspa-bot`. A tela "MCP Servers" do Slack não é necessária.
 
@@ -536,7 +543,15 @@ O aviso chega numa conversa privada com o app **Aspa Chat** (no Slack, em **Apps
    cd ~/dev/aspa-mcp && npm run test-notify
    ```
 
-   Esperado: `channels: desktop, slack-dm` e `sent to all channels`, e a mensagem em **Apps** → **Aspa Chat**.
+   Esperado: `channels: desktop, slack-dm` e `sent to all channels`, e a mensagem "✅ Notificações do aspa-mcp funcionando" em **Apps** → **Aspa Chat**.
+
+   Como os avisos aparecem no Slack:
+
+   | Tipo | Exemplo |
+   | --- | --- |
+   | Mensagem nova | 💬 **Nova mensagem no Aspa** · **João** · 14:23 · botão **Abrir no Aspa** |
+   | Fora do horário | 🕘 **Mensagens recebidas fora do horário** · lista de contatos, enviada no início do expediente |
+   | Sessão expirada | ⚠️ **Sessão do Aspa expirada** · peça ao Claude "faz o login no Aspa" |
 
 #### Parte 3: receber no celular
 
@@ -644,6 +659,45 @@ systemctl --user disable --now aspa-mcp  # parar e desligar
 
 ## 10. Segurança e privacidade
 
+### Registro de auditoria
+
+Toda ação que muda algo no Aspa feita pelo aspa-mcp fica registrada, **inclusive tentativas que falharam**:
+
+| Ação registrada | O que fica no registro |
+| --- | --- |
+| Enviar mensagem | texto enviado |
+| Enviar template | nome do template e variáveis |
+| Enviar anexo | nome, tamanho e SHA-256 do arquivo, legenda |
+| Transferir / assumir | destino e comentário |
+| Adiar | duração |
+| Concluir / reabrir | contato |
+| Renomear contato | novo nome |
+
+Cada registro tem também: data e hora, duração, usuário e computador, contato, status (`ok` ou `erro`), se o resultado foi conferido no painel e a mensagem de erro, quando houver.
+
+- **Onde fica**: `~/.local/share/aspa-mcp/auditoria.jsonl` (uma linha JSON por ação, só você consegue ler; o arquivo só cresce, nada é apagado).
+- **Ver no terminal**:
+
+  ```sh
+  cd ~/dev/aspa-mcp
+  npm run auditoria            # últimas 20 ações
+  npm run auditoria -- 100     # últimas 100
+  npm run auditoria -- 50 João # últimas 50 do contato João
+  ```
+
+- **Ver pelo Claude**: *"Mostra o que foi enviado hoje pelo Aspa"* ou *"Quais ações deram erro esta semana?"*.
+- **Configurar** (no `equipe.yaml` ou `pessoal.yaml`):
+
+  ```yaml
+  auditoria:
+    arquivo: ~/.local/share/aspa-mcp/auditoria.jsonl  # outro caminho, se quiser
+    incluir_texto: true   # false: guarda só o tamanho do texto, não o conteúdo
+  ```
+
+> O registro tem textos enviados a clientes (dados pessoais, LGPD). Trate como confidencial.
+
+### Cuidados
+
 - As ações de escrita afetam **clientes reais**. Aprove só o que você leu.
 - `~/.local/share/aspa-mcp/profile` guarda uma **sessão ativa do Aspa**: trate como senha.
 - `~/.config/aspa-mcp/env` guarda o token do Slack: não compartilhe nem faça commit.
@@ -666,12 +720,14 @@ systemctl --user disable --now aspa-mcp  # parar e desligar
 | `config.mjs` | Leitura e validação de `equipe.yaml` + `pessoal.yaml`, agenda e saudação |
 | `knowledge.mjs` | Lista, busca e leitura dos documentos |
 | `notify.mjs` | Canais de notificação (Ubuntu, Slack, ntfy) |
+| `audit.mjs` | Registro de auditoria das ações de escrita |
 | `transcribe.py` | Transcrição local com faster-whisper |
 
 ### Ferramentas do MCP
 
 | Ferramenta | Tipo | O que faz |
 | --- | --- | --- |
+| `aspa_audit_log` | leitura | Registro de auditoria das ações feitas no Aspa (filtros: contato, ação, data) |
 | `aspa_get_guidelines` | leitura | Empresa, tom, assinatura, saudação do horário, regras, exemplos, notificações e lista de documentos |
 | `aspa_search_knowledge` | leitura | Busca nos documentos (sem diferenciar acentos) |
 | `aspa_read_knowledge` | leitura | Lê um documento |
@@ -725,6 +781,7 @@ Ficam em `~/.config/aspa-mcp/env` (reinicie o serviço depois). As preferências
 | `npm run smoke -- --login` | Janela de login |
 | `npm run smoke -- "<contato>"` | Teste rápido de leitura |
 | `npm run test-notify` | Aviso de teste nos canais configurados |
+| `npm run auditoria -- [quantidade] [contato]` | Mostra o registro de auditoria |
 | `npm run setup-transcribe` | Instala a transcrição local |
 
 ### Limitações técnicas
@@ -753,6 +810,7 @@ Não. O aspa-mcp tem o próprio Chrome invisível. O `/chrome` só serve para o 
 - [x] Concluir, reabrir, adiar, renomear e assumir conversas
 - [x] Notificações no Ubuntu, Slack (direto para a pessoa) e celular
 - [x] Configuração da equipe e pessoal: tom, regras, exemplos, documentos, horários e canais
+- [x] Registro de auditoria de toda ação feita no Aspa
 - [ ] Testar ao vivo transferência e anexos de vídeo
 - [ ] Transcrição na GPU (CUDA)
 - [ ] Usar as "Respostas Rápidas" do Aspa nos rascunhos

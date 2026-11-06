@@ -7,5 +7,5 @@ const { config, errors: configErrors } = loadConfig();
 const channels = config.notificacoes.canais;
 if (configErrors.length) console.log(`config errors: ${configErrors.join("; ")}`);
 console.log("channels:", enabledChannels(channels).join(", ") || "none");
-const errors = await notify({ contact: "Teste", headline: "Notificação de teste do aspa-mcp", time: new Date().toTimeString().slice(0, 5) }, channels);
+const errors = await notify({ kind: "test", headline: "Se você está vendo isto, os avisos vão chegar aqui." }, channels);
 console.log(errors.length ? `errors: ${errors.join("; ")}` : "sent to all channels");
