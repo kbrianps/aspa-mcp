@@ -50,6 +50,7 @@ function merge(base, override) {
   if (!isObject(override)) return base;
   const result = { ...base };
   for (const [key, value] of Object.entries(override)) {
+    if (value === null || value === undefined) continue;
     result[key] = isObject(value) && isObject(base[key]) ? merge(base[key], value) : value;
   }
   return result;

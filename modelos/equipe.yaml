@@ -31,11 +31,11 @@ rascunhos:
   exemplos: []                      # veja exemplos/equipe.yaml para o formato
 
 conhecimento:
-  pasta: ~/.config/aspa-mcp/conhecimento   # .md, .txt, .pdf, .csv, .json, .yaml (subpastas valem)
+  # pasta: ~/outra/pasta   # padrão: a pasta "conhecimento" ao lado deste arquivo (.md, .txt, .pdf, .csv, .json, .yaml)
 
 auditoria:
-  arquivo: ~/.local/share/aspa-mcp/auditoria.jsonl   # registro de toda ação feita no Aspa
-  incluir_texto: true                                 # false: guarda só o tamanho dos textos
+  # arquivo: ~/outro/auditoria.jsonl   # padrão: ~/.local/share/aspa-mcp/auditoria.jsonl
+  incluir_texto: true                  # false: guarda só o tamanho dos textos
 
 notificacoes:
   abas: [meus]                         # meus, pendentes, todos

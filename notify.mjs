@@ -1,21 +1,36 @@
 import { execFile } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { ENV_FILE } from "./env-file.mjs";
 
-const SLACK_WEBHOOK_URL = process.env.ASPA_SLACK_WEBHOOK_URL;
-const SLACK_BOT_TOKEN = process.env.ASPA_SLACK_BOT_TOKEN;
-const SLACK_USER_ID = process.env.ASPA_SLACK_USER_ID;
-const NTFY_URL = process.env.ASPA_NTFY_URL;
-const NTFY_SHOW_CONTACT = process.env.ASPA_NTFY_SHOW_CONTACT === "1";
+function secrets() {
+  const values = { ...process.env };
+  if (existsSync(ENV_FILE)) {
+    for (const line of readFileSync(ENV_FILE, "utf8").split("\n")) {
+      const match = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/);
+      if (match) values[match[1]] = match[2].replace(/^["']|["']$/g, "");
+    }
+  }
+  return {
+    slackWebhookUrl: values.ASPA_SLACK_WEBHOOK_URL,
+    slackBotToken: values.ASPA_SLACK_BOT_TOKEN,
+    slackUserId: values.ASPA_SLACK_USER_ID,
+    ntfyUrl: values.ASPA_NTFY_URL,
+    ntfyShowContact: values.ASPA_NTFY_SHOW_CONTACT === "1",
+  };
+}
 
 export function enabledChannels(channels = ["desktop", "slack", "ntfy"]) {
+  const s = secrets();
   return [
     channels.includes("desktop") && "desktop",
-    channels.includes("slack") && SLACK_BOT_TOKEN && SLACK_USER_ID && "slack-dm",
-    channels.includes("slack") && SLACK_WEBHOOK_URL && "slack-webhook",
-    channels.includes("ntfy") && NTFY_URL && "ntfy",
+    channels.includes("slack") && s.slackBotToken && s.slackUserId && "slack-dm",
+    channels.includes("slack") && s.slackWebhookUrl && "slack-webhook",
+    channels.includes("ntfy") && s.ntfyUrl && "ntfy",
   ].filter(Boolean);
 }
 
 async function slackDirectMessage({ text, blocks }) {
+  const { slackBotToken: SLACK_BOT_TOKEN, slackUserId: SLACK_USER_ID } = secrets();
   try {
     const response = await fetch("https://slack.com/api/chat.postMessage", {
       method: "POST",
@@ -76,6 +91,7 @@ function slackPayload({ kind, contact, contacts, headline, time, agent }) {
 
 export async function notify({ kind = "message", contact, contacts, headline, time, agent }, channels) {
   const active = enabledChannels(channels);
+  const { slackWebhookUrl: SLACK_WEBHOOK_URL, ntfyUrl: NTFY_URL, ntfyShowContact: NTFY_SHOW_CONTACT } = secrets();
   const info = KINDS[kind] ?? KINDS.message;
   const title = contact ? `Aspa: ${contact}` : `Aspa: ${info.title}`;
   const body = [time ? `${headline} às ${time}` : headline, agent ? `Atendente: ${agent}` : "", contacts?.join(", ")].filter(Boolean).join("\n");

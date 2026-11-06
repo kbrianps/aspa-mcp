@@ -37,6 +37,13 @@ const methods = {
   searchContact: aspa.searchContact,
   createContact: aspa.createContact,
   setPromotionsBlocked: aspa.setPromotionsBlocked,
+  sessionStatus: aspa.sessionStatus,
+  testNotify: async () => {
+    const settings = currentNotificationSettings();
+    const channels = enabledChannels(settings.canais);
+    const errors = await notify({ kind: "test", headline: "Se você está vendo isto, os avisos vão chegar aqui." }, settings.canais);
+    return { channels, errors, configured_channels: settings.canais };
+  },
   openDraft: (args) =>
     aspa.openDraft(args, {
       onClosed: (info) => recordAudit({ method: "draftClosed", args: { contact: info.contact }, status: "ok", result: info, startedAt: Date.now() }),

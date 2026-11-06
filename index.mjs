@@ -6,6 +6,7 @@ import { call } from "./client.mjs";
 import { greetingFor, loadConfig, PERSONAL_CONFIG, TEAM_CONFIG } from "./config.mjs";
 import { readAudit } from "./audit.mjs";
 import { listDocuments, readDocument, searchDocuments } from "./knowledge.mjs";
+import { saveKnowledge, setEnvValue, setupCheck, updateSettings } from "./setup.mjs";
 
 const server = new McpServer(
   { name: "aspa", version: "0.4.0" },
@@ -13,7 +14,8 @@ const server = new McpServer(
     instructions:
       "Before writing any reply draft for an Aspa conversation, call aspa_get_guidelines and follow its tone, signature, rules and examples. " +
       "For facts about the company, products, prices, deadlines or policies, use aspa_search_knowledge and aspa_read_knowledge; never invent them, ask the customer or the user instead. " +
-      "Write tools (send, transfer, snooze, conclude, reopen, rename) act on real customers: call them only after the user approved the exact action.",
+      "Write tools (send, transfer, snooze, conclude, reopen, rename) act on real customers: call them only after the user approved the exact action. " +
+      "When the user wants to set up or configure Aspa, or aspa_get_guidelines shows warnings, call aspa_setup_check and guide the user through the pending items one at a time, in pt-BR, asking for the information and saving it with aspa_update_settings, aspa_save_knowledge and aspa_configure_slack. Never ask the user to paste the Slack token in the chat.",
   },
 );
 
@@ -233,6 +235,7 @@ const tools = [
 
 const READ_ONLY = process.env.ASPA_READ_ONLY === "1";
 const SAFE_IN_READ_ONLY = new Set(["aspa_login", "aspa_open_draft"]);
+const SETUP = { readOnlyHint: false, destructiveHint: false, openWorldHint: false };
 for (const [name, method, description, inputSchema, annotations] of tools) {
   if (READ_ONLY && !annotations.readOnlyHint && !SAFE_IN_READ_ONLY.has(name)) continue;
   server.registerTool(name, { description, inputSchema, annotations }, forward(method));
@@ -275,6 +278,105 @@ server.registerTool(
       notificacoes: config.notificacoes,
       conhecimento: { pasta: config.conhecimento.pasta, documentos: listDocuments(config.conhecimento.pasta) },
     };
+  }),
+);
+
+server.registerTool(
+  "aspa_setup_check",
+  {
+    description:
+      "Check the aspa-mcp setup and return a checklist (service, Aspa login, config files, company, tone and examples, signature, knowledge documents, Slack, notifications, transcription) with the next step for each pending item. Use it when the user wants to configure aspa-mcp or something is not working.",
+    inputSchema: {},
+    annotations: { readOnlyHint: true, openWorldHint: false },
+  },
+  local(async () => {
+    let service = { running: true };
+    let session = "unknown";
+    try {
+      session = (await call("sessionStatus", {}, 60000)).session;
+    } catch (error) {
+      if (/not running/.test(error.message)) service = { running: false };
+      else if (/janela de revisão|login do Aspa/i.test(error.message)) session = "busy";
+      else session = "unknown";
+    }
+    return setupCheck({ service, session });
+  }),
+);
+
+server.registerTool(
+  "aspa_update_settings",
+  {
+    description:
+      'Change aspa-mcp settings in equipe.yaml (team: empresa, rascunhos, conhecimento, auditoria, notificacoes defaults) or pessoal.yaml (personal overrides, e.g. rascunhos.assinatura and notificacoes). Keys are dotted paths, e.g. {"empresa.nome": "X", "rascunhos.exemplos": [{"situacao": "...", "resposta": "..."}], "notificacoes.abas": ["todos"]}. Keeps comments, saves a .bak copy, validates and rolls back invalid values. Creates the files from templates when missing. Confirm the values with the user before saving.',
+    inputSchema: {
+      file: z.enum(["equipe", "pessoal"]),
+      changes: z.record(z.string(), z.any()).describe("Dotted path -> new value."),
+    },
+    annotations: SETUP,
+  },
+  local((args) => updateSettings(args)),
+);
+
+server.registerTool(
+  "aspa_save_knowledge",
+  {
+    description:
+      "Create or update a company knowledge document (Markdown or text) in the knowledge folder, from information the user gives. One subject per file, with a title on the first line, e.g. path 'produtos/plano-basico.md'. Never invent facts: write only what the user provided. Use overwrite=true to replace an existing file (a .bak copy is kept).",
+    inputSchema: {
+      path: z.string().min(1).describe("Relative path inside the knowledge folder, e.g. faq.md or produtos/plano-basico.md"),
+      content: z.string().min(1).describe("Full document content in pt-BR."),
+      overwrite: z.boolean().optional(),
+    },
+    annotations: SETUP,
+  },
+  local((args) => saveKnowledge(args)),
+);
+
+server.registerTool(
+  "aspa_configure_slack",
+  {
+    description:
+      "Save the user's Slack member ID (starts with U) so notifications go to their Slack DM. The bot token is NOT accepted here: tell the user to paste it themselves in ~/.config/aspa-mcp/env (line ASPA_SLACK_BOT_TOKEN=xoxb-...) and never in the chat.",
+    inputSchema: { user_id: z.string().regex(/^[UW][A-Z0-9]{6,}$/, "Slack member IDs start with U or W, e.g. U0123456789.") },
+    annotations: SETUP,
+  },
+  local(({ user_id }) => {
+    setEnvValue("ASPA_SLACK_USER_ID", user_id);
+    return { saved: true, user_id, next: "If the token is not set yet, the user pastes it in ~/.config/aspa-mcp/env. Then call aspa_test_notifications." };
+  }),
+);
+
+server.registerTool(
+  "aspa_test_notifications",
+  {
+    description: "Send a test notification to every configured channel (Ubuntu desktop, Slack, ntfy) and report which channels worked and the errors.",
+    inputSchema: {},
+    annotations: SETUP,
+  },
+  forward("testNotify"),
+);
+
+server.registerPrompt(
+  "configurar",
+  {
+    title: "Configurar o aspa-mcp",
+    description: "Guia passo a passo para configurar o aspa-mcp: login, empresa, tom, assinatura, documentos, Slack e notificações.",
+  },
+  () => ({
+    messages: [
+      {
+        role: "user",
+        content: {
+          type: "text",
+          text:
+            "Quero configurar o aspa-mcp. Rode aspa_setup_check e me guie pelos itens pendentes, um de cada vez, em português. " +
+            "Para cada item, me explique em uma frase, me pergunte o que precisar e salve com as ferramentas de configuração depois que eu confirmar. " +
+            "Para o login, chame aspa_login. Para o Slack, me peça só o ID de membro; o token eu colo sozinho no arquivo env. " +
+            "Para os documentos da empresa, me pergunte sobre planos e preços, prazos, políticas e perguntas frequentes, e salve um arquivo por assunto sem inventar nada. " +
+            "No fim, rode aspa_setup_check de novo e aspa_test_notifications.",
+        },
+      },
+    ],
   }),
 );
 

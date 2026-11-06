@@ -1387,6 +1387,13 @@ export const setPromotionsBlocked = ({ index, contact, blocked }) =>
     return { promotions_blocked: now, contact: match.contact, changed: current !== now, verified: now === blocked, dialog };
   });
 
+export const sessionStatus = () =>
+  exclusive(async () => {
+    const page = await getWorkPage();
+    if (!page.url().startsWith(APP_ORIGIN)) await page.goto(LIST_URL, { waitUntil: "domcontentloaded" });
+    return { session: await waitForSession(page, 30000) };
+  });
+
 const REVIEW_TIMEOUT_MS = 20 * 60 * 1000;
 
 export function openDraft({ index, contact, text, timeoutMinutes }, { onClosed } = {}) {

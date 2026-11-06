@@ -163,7 +163,21 @@ Troque pelo nome de alguém na lista de atendimentos. O comando mostra quantas c
 
 Feche e abra o Claude Code, digite `/mcp` e confira se `aspa` aparece como **connected**.
 
-✅ **Instalação concluída.** Personalização, Slack e transcrição são opcionais.
+### Passo 8: deixar o assistente configurar o resto
+
+Abra o Claude Code (ou outro cliente, veja a seção 11) e peça:
+
+```text
+Me ajuda a configurar o Aspa.
+```
+
+No Claude Code também dá para usar o comando pronto `/mcp__aspa__configurar`.
+
+O assistente roda um checklist (serviço, login, empresa, tom, assinatura, documentos, Slack, notificações e transcrição) e resolve os itens pendentes **um de cada vez**: faz perguntas, mostra o que vai gravar e salva nos seus arquivos de configuração depois que você confirmar. Ele cria os documentos da empresa a partir do que você contar ou colar, sem inventar nada.
+
+O token do Slack é a única coisa que ele **não** grava: você mesmo cola no arquivo `~/.config/aspa-mcp/env`, para o segredo não passar pelo modelo.
+
+✅ **Instalação concluída.** Os passos manuais das seções 5 e 6 continuam valendo para quem prefere editar os arquivos direto.
 
 ---
 
@@ -870,6 +884,11 @@ Use somente as ferramentas do MCP aspa aspa_statistics e aspa_get_guidelines. Re
 
 | Ferramenta | Tipo | O que faz |
 | --- | --- | --- |
+| `aspa_setup_check` | configuração | Checklist do que está pronto e do que falta, com o próximo passo |
+| `aspa_update_settings` | configuração | Altera `equipe.yaml` ou `pessoal.yaml` (mantém comentários, guarda `.bak`, valida e desfaz se inválido) |
+| `aspa_save_knowledge` | configuração | Cria ou atualiza um documento da pasta de conhecimento |
+| `aspa_configure_slack` | configuração | Grava o seu ID de membro do Slack (o token você cola sozinho) |
+| `aspa_test_notifications` | configuração | Manda um aviso de teste e mostra o que falhou |
 | `aspa_audit_log` | leitura | Registro de auditoria das ações feitas no Aspa (filtros: contato, ação, data) |
 | `aspa_get_guidelines` | leitura | Empresa, tom, assinatura, saudação do horário, regras, exemplos, notificações e lista de documentos |
 | `aspa_search_knowledge` | leitura | Busca nos documentos (sem diferenciar acentos) |
@@ -902,6 +921,8 @@ Use somente as ferramentas do MCP aspa aspa_statistics e aspa_get_guidelines. Re
 | `aspa_rename_contact` | escrita | Renomeia e confere o nome salvo |
 
 As ferramentas de escrita conferem o resultado no painel e devolvem erro em vez de dizer que deu certo quando não deu.
+
+As ferramentas de configuração mexem só nos seus arquivos locais (nunca no Aspa) e ficam disponíveis também no modo somente leitura. O MCP também oferece o prompt `configurar` (no Claude Code: `/mcp__aspa__configurar`).
 
 ### Variáveis de ambiente
 
@@ -978,6 +999,7 @@ Não. O aspa-mcp tem o próprio Chrome invisível. O `/chrome` só serve para o 
 - [ ] Usar as Respostas Rápidas automaticamente nos rascunhos (a conta ainda não tem nenhuma)
 - [ ] Editar e-mail e empresa do contato; status do atendente
 - [x] Modo somente leitura para outros clientes de MCP
+- [x] Configuração guiada pelo próprio MCP (checklist, ajustes, documentos, Slack e teste de avisos)
 - [ ] Testar de forma interativa no Codex, Antigravity, opencode (DeepSeek, GLM, Kimi), Grok Bot e Z Code
 - [ ] Jornadas e etiquetas, quando configuradas na conta
 - [ ] API oficial da Aspa no lugar da automação do painel, quando disponível
