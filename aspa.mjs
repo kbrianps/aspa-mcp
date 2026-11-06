@@ -727,14 +727,16 @@ export const transfer = ({ index, contact, to, comment }) =>
   exclusive(async () => {
     const page = await getWorkPage();
     const match = await openConversation(page, { index, contact });
-    if (await assumeButton(page)) {
-      throw new Error("This conversation has no agent yet. Use aspa_assume to take it before transferring.");
-    }
     await clickHeaderIcon(page, "swap_horiz");
     const input = await page
       .waitForSelector(".cdk-overlay-container :is(mat-dialog-container, .mat-mdc-dialog-container) input", { timeout: 10000 })
       .catch(() => null);
-    if (!input) throw new Error("The transfer dialog did not open in the Aspa panel.");
+    if (!input) {
+      if (await assumeButton(page)) {
+        throw new Error("Aspa did not open the transfer dialog for this conversation. Use aspa_assume to take it first (works for unassigned conversations and conversations of other agents).");
+      }
+      throw new Error("The transfer dialog did not open in the Aspa panel.");
+    }
     await input.click();
     await page.waitForSelector(".cdk-overlay-container mat-option", { timeout: 8000 }).catch(() => null);
     const available = await overlayTexts(page, "mat-option");
@@ -1284,6 +1286,10 @@ async function openContactsMenuItem(page, label) {
 export const searchContact = ({ query }) =>
   exclusive(async () => {
     const page = await getWorkPage();
+    return searchContactIn(page, query);
+  });
+
+async function searchContactIn(page, query) {
     await openContactsMenuItem(page, "Buscar contato");
     try {
       const input = await page.$(".cdk-overlay-container :is(mat-dialog-container, .mat-mdc-dialog-container) input[type=text]");
@@ -1302,11 +1308,21 @@ export const searchContact = ({ query }) =>
     } finally {
       await closeOverlays(page);
     }
-  });
+}
+
+const digitsOf = (value) => String(value ?? "").replace(/\D/g, "");
 
 export const createContact = ({ name, phone }) =>
   exclusive(async () => {
     const page = await getWorkPage();
+    const localDigits = digitsOf(phone).replace(/^55/, "");
+    const existing = await searchContactIn(page, localDigits);
+    const existingPhone = existing.resultados.find((line) => digitsOf(line).endsWith(localDigits.slice(-8)));
+    if (existingPhone) {
+      const index = existing.resultados.indexOf(existingPhone);
+      const existingName = existing.resultados.find((line, i) => i < index && /[a-zA-ZÀ-ú]/.test(line) && !line.startsWith("·"));
+      throw new Error(`A contact with this phone already exists${existingName ? ` as "${existingName}"` : ""}. Nothing was created.`);
+    }
     await openContactsMenuItem(page, "Novo contato");
     try {
       const inputs = await page.$$(".cdk-overlay-container :is(mat-dialog-container, .mat-mdc-dialog-container) input[type=text], .cdk-overlay-container :is(mat-dialog-container, .mat-mdc-dialog-container) input[type=tel]");
@@ -1319,7 +1335,10 @@ export const createContact = ({ name, phone }) =>
         const message = await page.evaluate(() => document.querySelector(".cdk-overlay-container :is(mat-error, .mat-mdc-form-field-error, simple-snack-bar)")?.innerText.trim());
         throw new Error(`Aspa did not confirm the new contact${message ? `: ${message}` : "."}`);
       }
-      return { created: true, name, phone, verified: true };
+      await sleep(1500);
+      const check = await searchContactIn(page, name);
+      const found = check.resultados.some((line) => line.toLowerCase() === name.toLowerCase());
+      return { created: found, name, phone, verified: found, note: found ? undefined : "The dialog closed but the contact was not found by name afterwards." };
     } catch (error) {
       await closeOverlays(page);
       throw error;

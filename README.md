@@ -79,7 +79,7 @@ O **serviço em segundo plano** mantém um Chrome invisível logado no Aspa, exe
 | Python (transcrição) | 3.14.4 com faster-whisper 1.2.1, modelo `small`, CPU |
 | Data dos testes | novembro de 2026 |
 
-Testado de ponta a ponta: login, leitura, anexos (imagem, PDF, áudio), transcrição, envio de texto, anexo e template, concluir, reabrir, adiar, renomear contato e notificações no Ubuntu. Ainda não testado ao vivo: transferir e anexos de vídeo.
+Testado de ponta a ponta: login, leitura, anexos (imagem, PDF, áudio), transcrição, envio de texto, anexo e template, concluir, reabrir, adiar, renomear contato e notificações no Ubuntu. Também testados: assumir, transferir, criar contato, janela de revisão, filtros, busca, estatísticas, responder citando e adiar até data. Anexos de vídeo: só download.
 
 ---
 
@@ -818,12 +818,12 @@ Cada registro tem também: data e hora, duração, usuário e computador, contat
 | `aspa_send_attachment` | escrita | Arquivo local (até 16 MB) com legenda |
 | `aspa_open_draft` | janela | Abre o Aspa com o rascunho na caixa para você revisar e enviar |
 | `aspa_reply_to_message` | escrita | Responde citando uma mensagem (`messageIndex`) |
-| `aspa_assume` | escrita | Assume uma conversa sem atendente |
-| `aspa_transfer` | escrita, não testada ao vivo | Transfere para outro atendente ou time (o atual não aparece na lista) |
+| `aspa_assume` | escrita | Assume uma conversa sem atendente ou de outro atendente |
+| `aspa_transfer` | escrita | Transfere uma conversa **sua** para outro atendente ou time (o Aspa não deixa transferir conversa de outra pessoa: use assumir) |
 | `aspa_mark_unread` | escrita | Marca como não lida |
 | `aspa_snooze` | escrita | Adia `1h`, `1d` ou `1w` e confere |
 | `aspa_snooze_until` | escrita | Adia até data e hora (`YYYY-MM-DD`, `HH:MM` de 15 em 15 min), com comentário |
-| `aspa_create_contact` | escrita, não testada ao vivo | Cria contato (nome e telefone) |
+| `aspa_create_contact` | escrita | Cria contato (nome e telefone); recusa telefone já cadastrado e confere depois |
 | `aspa_block_promotions` | escrita | Liga ou desliga "Bloquear Promoções" |
 | `aspa_conclude` | escrita | Conclui e confere |
 | `aspa_reopen` | escrita | Reabre (concluídas na última semana) e confere |
@@ -899,7 +899,7 @@ Não. O aspa-mcp tem o próprio Chrome invisível. O `/chrome` só serve para o 
 - [x] Marcar como não lida, ler sem marcar, responder citando, adiar até data e hora
 - [x] Estatísticas e Respostas Rápidas
 - [x] Notificações por atendente, contato e conversa nova
-- [ ] Testar ao vivo transferência para outra pessoa e criação de contato
+- [x] Transferência, assumir conversa de outro atendente e criação de contato testados ao vivo
 - [ ] Transcrição na GPU (CUDA)
 - [ ] Usar as Respostas Rápidas automaticamente nos rascunhos (a conta ainda não tem nenhuma)
 - [ ] Editar e-mail e empresa do contato; status do atendente

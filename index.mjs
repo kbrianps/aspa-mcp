@@ -203,7 +203,7 @@ const tools = [
   [
     "aspa_assume",
     "assume",
-    "Assume (take) a conversation that has no agent yet, by clicking 'Assumir' in the Aspa panel. Required before replying or transferring an unassigned conversation." + APPROVAL,
+    "Assume (take) a conversation by clicking 'Assumir' in the Aspa panel: works for conversations without an agent and for conversations assigned to another agent. Required before replying to a conversation that is not yours." + APPROVAL,
     target,
     WRITE,
   ],
